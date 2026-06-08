@@ -1,0 +1,917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kova Mart Secure AI — Fraud Detection Dashboard</title>
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- PapaParse for batch CSV upload processing -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.2/papaparse.min.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        
+        <!-- SIDEBAR NAVIGATION -->
+        <aside class="sidebar">
+            <div class="sidebar-brand">
+                <div class="sidebar-logo-icon">🛡️</div>
+                <div class="sidebar-brand-name">Kova Mart</div>
+            </div>
+            
+            <nav style="flex-grow: 1;">
+                <ul class="sidebar-menu">
+                    <li>
+                        <button class="menu-item-btn active" onclick="switchView('dashboard')">
+                            <i data-lucide="layout-dashboard"></i>
+                            <span>Dashboard</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('alerts')">
+                            <i data-lucide="bell"></i>
+                            <span>Alert Center</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('operations')">
+                            <i data-lucide="shield-alert"></i>
+                            <span>Operations Console</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('members')">
+                            <i data-lucide="users"></i>
+                            <span>Member Registry</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('simulator')">
+                            <i data-lucide="sliders"></i>
+                            <span>Risk Simulator</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('upload')">
+                            <i data-lucide="file-up"></i>
+                            <span>Batch Upload</span>
+                        </button>
+                    </li>
+                    <li>
+                        <button class="menu-item-btn" onclick="switchView('reports')">
+                            <i data-lucide="clipboard-list"></i>
+                            <span>Compliance Reports</span>
+                        </button>
+                    </li>
+                </ul>
+            </nav>
+            
+            <div class="sidebar-footer">
+                <div class="sys-health">
+                    <span class="health-dot"></span>
+                    <span>AI Model Active</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- MAIN LAYOUT -->
+        <main class="main-content">
+            
+            <!-- TOP BAR -->
+            <header class="top-bar">
+                <div class="bar-title" id="view-title">Dashboard Overview</div>
+                
+                <div class="top-bar-actions">
+                    <div class="auto-block-toggle">
+                        <span>Auto-Block High Risk</span>
+                        <label class="switch">
+                            <input type="checkbox" id="auto-block-checkbox" onchange="toggleAutoBlock()">
+                            <span class="slider-toggle"></span>
+                        </label>
+                    </div>
+                    
+                    <div class="notification-bell-container" style="position: relative;">
+                        <button class="notification-bell" onclick="toggleAlertDropdown(event)">
+                            <i data-lucide="bell"></i>
+                            <span class="bell-badge" id="alert-counter-badge" style="display:none;">0</span>
+                        </button>
+                        <!-- Bell dropdown menu -->
+                        <div class="bell-dropdown glass-panel" id="bell-dropdown-menu" style="display: none;">
+                            <div class="dropdown-header">
+                                <span>Recent Threat Alerts</span>
+                                <a href="#" onclick="event.preventDefault(); viewAllAlerts();">View All</a>
+                            </div>
+                            <div class="dropdown-list" id="bell-dropdown-list">
+                                <!-- Dynamic recent alerts -->
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- VIEW 1: DASHBOARD OVERVIEW -->
+            <section id="view-dashboard" class="view-container active">
+                
+                <!-- Metrics Grid -->
+                <div class="stats-grid">
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>TOTAL TRANSACTIONS</span>
+                            <i data-lucide="activity" style="color: #3b82f6;"></i>
+                        </div>
+                        <div class="stat-value" id="stats-total-tx">-</div>
+                        <div class="stat-subtext">Total database entries</div>
+                    </div>
+                    
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>FRAUD RATE PREVALENCE</span>
+                            <i data-lucide="alert-triangle" style="color: var(--color-critical);"></i>
+                        </div>
+                        <div class="stat-value"><span id="stats-fraud-rate">-</span>%</div>
+                        <div class="stat-subtext">
+                            <span id="stats-fraud-detected">-</span> flagged transactions
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>AVERAGE RISK SCORE</span>
+                            <i data-lucide="percent" style="color: var(--color-medium);"></i>
+                        </div>
+                        <div class="stat-value" id="stats-avg-risk">-</div>
+                        <div class="stat-subtext">AI threat rating index</div>
+                    </div>
+
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>TOTAL MEMBERS</span>
+                            <i data-lucide="users" style="color: #00e676;"></i>
+                        </div>
+                        <div class="stat-value" id="stats-total-members">-</div>
+                        <div class="stat-subtext">
+                            <span id="stats-active-members">-</span> active accounts
+                        </div>
+                    </div>
+
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>FLAGGED MEMBERS</span>
+                            <i data-lucide="user-x" style="color: var(--color-high);"></i>
+                        </div>
+                        <div class="stat-value" id="stats-flagged-members">-</div>
+                        <div class="stat-subtext">Under fraud investigation</div>
+                    </div>
+
+                    <div class="glass-panel stat-card">
+                        <div class="stat-header">
+                            <span>CRITICAL ALERTS</span>
+                            <i data-lucide="alert-octagon" style="color: var(--color-critical);"></i>
+                        </div>
+                        <div class="stat-value" id="stats-critical-alerts">-</div>
+                        <div class="stat-subtext">Requires auditor action</div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid Row 1 -->
+                <div class="charts-grid">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-title">
+                            <span>Risk Threat Distribution</span>
+                            <i data-lucide="bar-chart-2"></i>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-risk-distribution"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel chart-card">
+                        <div class="chart-title">
+                            <span>Fraud Rate Trend by Hour</span>
+                            <i data-lucide="trending-up"></i>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-fraud-trend"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Charts Grid Row 2 -->
+                <div class="charts-grid">
+                    <div class="glass-panel chart-card">
+                        <div class="chart-title">
+                            <span>Key Flag Risk Factors (Priority Vectors)</span>
+                            <i data-lucide="pie-chart"></i>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-risk-factors"></canvas>
+                        </div>
+                    </div>
+                    
+                    <div class="glass-panel chart-card">
+                        <div class="chart-title">
+                            <span>Geographic Threat Assessment</span>
+                            <i data-lucide="map"></i>
+                        </div>
+                        <div class="chart-container">
+                            <div class="geo-map-wrapper">
+                                <svg class="map-svg-container" viewBox="0 0 1000 480" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M 0 80 H 1000 M 0 160 H 1000 M 0 240 H 1000 M 0 320 H 1000 M 0 400 H 1000" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                                    <path d="M 166 0 V 480 M 333 0 V 480 M 500 0 V 480 M 666 0 V 480 M 833 0 V 480" stroke="rgba(255,255,255,0.03)" stroke-width="1"/>
+                                    <path d="M680 280 C 700 275, 715 285, 730 280 C 740 282, 755 275, 770 285 C 785 288, 800 280, 810 290 C 825 292, 840 285, 860 300 C 840 305, 820 300, 800 310 C 780 305, 760 312, 740 300 C 720 298, 700 305, 680 295 C 670 290, 672 282, 680 280 Z" fill="rgba(0, 230, 118, 0.2)" stroke="var(--color-legit)" stroke-width="1.5"/>
+                                    <circle cx="770" cy="290" r="10" fill="none" stroke="var(--color-legit)" stroke-width="1" stroke-dasharray="2"/>
+                                    <text x="770" y="325" fill="var(--text-secondary)" font-size="11" text-anchor="middle" font-family="Outfit">Indonesia (Domestic)</text>
+                                    <path d="M120 180 C 130 150, 170 140, 200 160 C 230 150, 260 170, 290 150 C 310 180, 270 210, 240 200 C 210 220, 180 200, 150 210 C 130 190, 110 200, 120 180 Z" fill="rgba(255, 23, 68, 0.2)" stroke="var(--color-critical)" stroke-width="1.5"/>
+                                    <circle cx="205" cy="180" r="10" fill="none" stroke="var(--color-critical)" stroke-width="1" stroke-dasharray="2"/>
+                                    <text x="205" y="235" fill="var(--text-secondary)" font-size="11" text-anchor="middle" font-family="Outfit">IP Foreign (Outsider)</text>
+                                    <path d="M 215 180 Q 480 120 760 290" stroke="rgba(255, 23, 68, 0.4)" stroke-width="2" stroke-dasharray="5 5" marker-end="url(#arrow)"/>
+                                </svg>
+                                
+                                <div class="map-details">
+                                    <div class="map-region">
+                                        <div class="map-region-name">
+                                            <span class="health-dot" style="background-color: var(--color-legit); box-shadow: 0 0 8px var(--color-legit);"></span>
+                                            <span>Domestic Origin</span>
+                                        </div>
+                                        <div class="map-region-value" id="stats-geo-domestic">-</div>
+                                    </div>
+                                    
+                                    <div class="map-region">
+                                        <div class="map-region-name">
+                                            <span class="health-dot" style="background-color: var(--color-critical); box-shadow: 0 0 8px var(--color-critical);"></span>
+                                            <span>Foreign Outsider IP</span>
+                                        </div>
+                                        <div class="map-region-value" id="stats-geo-foreign">-</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dashboard Recent Activities Row -->
+                <div class="charts-grid" style="grid-template-columns: 1.2fr 0.8fr;">
+                    <!-- Recent Fraud Alerts -->
+                    <div class="glass-panel chart-card" style="min-height: auto;">
+                        <div class="chart-title">
+                            <span>Recent Security Fraud Alerts</span>
+                            <i data-lucide="shield-alert" style="color: var(--color-critical);"></i>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" style="font-size: 13px;">
+                                <thead>
+                                    <tr>
+                                        <th>Alert ID</th>
+                                        <th>Customer</th>
+                                        <th>Indicators</th>
+                                        <th>Risk Score</th>
+                                        <th>Severity</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-recent-alerts">
+                                    <!-- Populated via API -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Registrations -->
+                    <div class="glass-panel chart-card" style="min-height: auto;">
+                        <div class="chart-title">
+                            <span>Recent Registrations</span>
+                            <i data-lucide="user-plus" style="color: var(--color-legit);"></i>
+                        </div>
+                        <div class="table-wrapper">
+                            <table class="data-table" style="font-size: 13px;">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>National ID (NIK)</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="dashboard-recent-registrations">
+                                    <!-- Populated via API -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 2: ALERT CENTER (REAL-TIME ALERTS VIEW) -->
+            <section id="view-alerts" class="view-container">
+                <div class="table-controls">
+                    <div class="search-wrapper">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="alerts-search-input" class="search-input" placeholder="Search alert, customer name..." oninput="handleAlertsFilter()">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <select id="filter-alert-severity" class="filter-select" onchange="handleAlertsFilter()">
+                            <option value="ALL">All Severities</option>
+                            <option value="Critical">🔴 Critical</option>
+                            <option value="High">🟠 High</option>
+                            <option value="Medium">🟡 Medium</option>
+                            <option value="Low">🟢 Low</option>
+                        </select>
+                        
+                        <select id="filter-alert-status" class="filter-select" onchange="handleAlertsFilter()">
+                            <option value="ALL">All Statuses</option>
+                            <option value="Open">Open</option>
+                            <option value="Under Review">Under Review</option>
+                            <option value="Resolved">Resolved</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="glass-panel table-card">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Alert ID</th>
+                                    <th>Target</th>
+                                    <th>Customer (ID)</th>
+                                    <th>Risk Score</th>
+                                    <th>Indicators Triggered</th>
+                                    <th>Severity</th>
+                                    <th>Detection Time</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="alerts-table-body">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 3: OPERATIONS CONSOLE -->
+            <section id="view-operations" class="view-container">
+                <div class="table-controls">
+                    <div class="search-wrapper">
+                        <i data-lucide="search"></i>
+                        <input type="text" id="op-search-input" class="search-input" placeholder="Search customer, ID..." oninput="handleFilterChange()">
+                    </div>
+                    
+                    <div class="filter-group">
+                        <select id="filter-risk" class="filter-select" onchange="handleFilterChange()">
+                            <option value="ALL">All Risk Levels</option>
+                            <option value="🔴 CRITICAL">🔴 Critical Risk</option>
+                            <option value="🟠 HIGH">🟠 High Risk</option>
+                            <option value="🟡 MEDIUM">🟡 Medium Risk</option>
+                            <option value="🟢 LOW">🟢 Low Risk</option>
+                        </select>
+                        
+                        <select id="filter-channel" class="filter-select" onchange="handleFilterChange()">
+                            <option value="ALL">All Channels</option>
+                            <option value="0">App Transactions</option>
+                            <option value="1">Kiosk Transactions</option>
+                        </select>
+                        
+                        <select id="filter-status" class="filter-select" onchange="handleFilterChange()">
+                            <option value="ALL">All Status</option>
+                            <option value="approved">Approved</option>
+                            <option value="blocked">Blocked</option>
+                            <option value="review">In Review</option>
+                            <option value="pending">Pending Audit</option>
+                        </select>
+                        
+                        <button class="btn btn-secondary" onclick="exportFilteredToCSV()">
+                            <i data-lucide="download"></i> Export CSV
+                        </button>
+                    </div>
+                </div>
+
+                <div class="glass-panel table-card">
+                    <div class="table-wrapper">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th onclick="handleSort('customer_id')">Customer ID <span id="sort-icon-customer_id"></span></th>
+                                    <th onclick="handleSort('Initial_Subsidy')">Initial Subsidy <span id="sort-icon-Initial_Subsidy"></span></th>
+                                    <th onclick="handleSort('transaction_amount')">Amount <span id="sort-icon-transaction_amount"></span></th>
+                                    <th onclick="handleSort('Subsidy_balance')">Balance <span id="sort-icon-Subsidy_balance"></span></th>
+                                    <th onclick="handleSort('final_pct')">Risk Score <span id="sort-icon-final_pct"></span></th>
+                                    <th onclick="handleSort('level')">Level <span id="sort-icon-level"></span></th>
+                                    <th onclick="handleSort('status')">Audit Status <span id="sort-icon-status"></span></th>
+                                </tr>
+                            </thead>
+                            <tbody id="operations-table-body">
+                                <!-- Dynamically loaded rows -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-pagination">
+                        <div class="pagination-info" id="pagination-info-text">
+                            Showing 0 to 0 of 0 transactions
+                        </div>
+                        <div class="pagination-btns">
+                            <button class="pagination-btn" id="pagination-prev" onclick="changePage(-1)" disabled>Previous</button>
+                            <button class="pagination-btn" id="pagination-next" onclick="changePage(1)" disabled>Next</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 4: MEMBER REGISTRATION & REGISTRY -->
+            <section id="view-members" class="view-container">
+                <div class="simulator-layout">
+                    <!-- Member Form -->
+                    <div class="glass-panel simulator-form">
+                        <div class="chart-title">Add New Member Registration</div>
+                        <form id="member-registration-form" onsubmit="event.preventDefault(); submitMemberRegistration();">
+                            <div style="display: flex; flex-direction: column; gap: 16px;">
+                                <div class="form-group">
+                                    <label>Full Name</label>
+                                    <input type="text" id="mem-name" class="form-input" placeholder="e.g. Budi Santoso" required>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label>National ID Number (NIK)</label>
+                                    <input type="text" id="mem-nik" class="form-input" placeholder="16 digit Indonesian NIK" maxlength="16" minlength="16" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Phone Number</label>
+                                    <input type="text" id="mem-phone" class="form-input" placeholder="e.g. 081234567890" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>KKS Card Number (Subsidy Card)</label>
+                                    <input type="text" id="mem-kks" class="form-input" placeholder="16 digit KKS card number" maxlength="16" minlength="16" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Home Address</label>
+                                    <textarea id="mem-address" class="notes-input" style="min-height: 60px;" placeholder="Full residential address..." required></textarea>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Device Signature</label>
+                                    <input type="text" id="mem-device" class="form-input" placeholder="Device identifier info" required>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Registration IP Address</label>
+                                    <input type="text" id="mem-ip" class="form-input" placeholder="e.g. 180.250.44.112" required>
+                                </div>
+
+                                <div style="display: flex; gap: 12px; margin-top: 8px;">
+                                    <button type="button" class="btn btn-secondary" onclick="autoDetectDeviceAndIP()">
+                                        <i data-lucide="detective"></i> Autofill Device
+                                    </button>
+                                    <button type="submit" class="btn" style="flex-grow: 1;">
+                                        <i data-lucide="user-check"></i> Register Member
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Members Registry Table -->
+                    <div class="glass-panel prediction-panel" style="flex-grow: 2; display: flex; flex-direction: column; min-height: 400px;">
+                        <div class="chart-title">Registered Members Registry</div>
+                        <div class="table-wrapper" style="flex-grow: 1;">
+                            <table class="data-table" style="font-size: 13px;">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>NIK</th>
+                                        <th>Phone</th>
+                                        <th>Verification</th>
+                                        <th>Registered Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="members-table-body">
+                                    <!-- Loaded dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 5: RISK SIMULATOR (PLAYGROUND) -->
+            <section id="view-simulator" class="view-container">
+                <div class="simulator-layout">
+                    
+                    <!-- Left Form Panel -->
+                    <div class="glass-panel simulator-form">
+                        <div class="chart-title">
+                            <span>Manually Configure Simulator Properties</span>
+                            <button class="btn btn-secondary" style="padding: 6px 12px; font-size: 13px;" onclick="triggerSyntheticGeneration()">
+                                <i data-lucide="refresh-cw"></i> Generate Real Scenario
+                            </button>
+                        </div>
+                        
+                        <form id="simulator-inputs-form" onsubmit="event.preventDefault(); runManualAnalysis();">
+                            <div class="form-grid">
+                                
+                                <div class="form-group slider-group">
+                                    <label>Initial Subsidy (Rp): <span id="val-Initial_Subsidy" class="slider-value">Rp 750.000</span></label>
+                                    <div class="slider-wrapper">
+                                        <input type="range" id="sim-Initial_Subsidy" min="500000" max="1000000" step="10000" value="750000" oninput="updateSliderDisplay(this)">
+                                    </div>
+                                </div>
+                                
+                                <div class="form-group slider-group">
+                                    <label>Transaction Amount (Rp): <span id="val-transaction_amount" class="slider-value">Rp 120.000</span></label>
+                                    <div class="slider-wrapper">
+                                        <input type="range" id="sim-transaction_amount" min="10000" max="950000" step="5000" value="120000" oninput="updateSliderDisplay(this)">
+                                    </div>
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Hour of Day (0 - 23)</label>
+                                    <input type="number" id="sim-hour_of_day" class="form-input" min="0" max="23" value="14">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Number of Items</label>
+                                    <input type="number" id="sim-num_items" class="form-input" min="1" max="50" value="2">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Previous Transactions (Count)</label>
+                                    <input type="number" id="sim-prev_transactions" class="form-input" min="0" max="100" value="5">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Failed Login Attempts</label>
+                                    <input type="number" id="sim-failed_login_attempts" class="form-input" min="0" max="10" value="0">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Payment Retry Count</label>
+                                    <input type="number" id="sim-payment_retry_count" class="form-input" min="0" max="10" value="0">
+                                </div>
+
+                                <div class="form-group">
+                                    <label>Same Product count (Month)</label>
+                                    <input type="number" id="sim-same_product_transcation_count_month" class="form-input" min="0" max="30" value="2">
+                                </div>
+                                
+                                <div class="form-group toggle-group" style="grid-column: span 2;">
+                                    <label>First Transaction of Account</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-is_first_transaction">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+                                
+                                <div class="form-group toggle-group">
+                                    <label>IP Address Outside Indonesia</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-ip_outside">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>National ID Not Verified</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-id_not_verified">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>KKS Card Validation Failed</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-kks_not_valid">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Duplicate Account Detected</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-duplicate_account">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Transaction Freq > 3/hr</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-high_frequency">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Invalid / Expired Bank Card</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-card_invalid">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Repeated Purchase > 10</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-repeated_purchase">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Same Device Multi-Account</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-same_device">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Login Location Changed</label>
+                                    <label class="switch">
+                                        <input type="checkbox" id="sim-location_changed">
+                                        <span class="slider-toggle"></span>
+                                    </label>
+                                </div>
+
+                                <div class="form-group toggle-group">
+                                    <label>Transaction Channel</label>
+                                    <div style="display:flex; gap:10px; font-size: 13px;">
+                                        <span>App</span>
+                                        <label class="switch">
+                                            <input type="checkbox" id="sim-channel_kiosk">
+                                            <span class="slider-toggle"></span>
+                                        </label>
+                                        <span>Kiosk</span>
+                                    </div>
+                                </div>
+
+                            </div>
+                            
+                            <button type="submit" class="btn" style="width: 100%; margin-top: 24px; padding: 14px;">
+                                <i data-lucide="shield-check"></i> Evaluate Transaction Risk Profile
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Right Score Output Panel -->
+                    <div class="glass-panel prediction-panel">
+                        <div class="detail-section-title" style="margin-bottom: 0;">Risk Analysis Output</div>
+                        
+                        <div class="gauge-wrapper">
+                            <div class="gauge-body"></div>
+                            <div class="gauge-fill" id="pred-gauge-fill"></div>
+                            <div class="gauge-cover">
+                                <span class="gauge-text" id="pred-risk-pct">0%</span>
+                            </div>
+                            <span class="gauge-label">Threat Level</span>
+                        </div>
+                        
+                        <div class="prediction-level" id="pred-level" style="color: var(--color-legit);">🟢 LOW THREAT</div>
+                        <div class="prediction-verdict" id="pred-verdict">Transaction details are clean and verified.</div>
+                        
+                        <div class="risk-breakdown">
+                            <div class="detail-section-title">Analysis Scoring Vectors</div>
+                            <div class="breakdown-row">
+                                <span>Priority Rules Risk Floor:</span>
+                                <span id="pred-rules-score">0.0%</span>
+                            </div>
+                            <div class="breakdown-row">
+                                <span>AI Model Probability Score:</span>
+                                <span id="pred-ai-score">0.0%</span>
+                            </div>
+                            <div class="breakdown-row" style="border-top:1px solid rgba(255,255,255,0.05); padding-top: 8px; margin-top: 4px;">
+                                <span>Aggregate Weighted score:</span>
+                                <span id="pred-final-score" style="color: var(--color-legit);">0.0%</span>
+                            </div>
+                            <div class="breakdown-row">
+                                <span>Triggered Indicator Flags:</span>
+                                <span id="pred-flags-triggered">0 / 14</span>
+                            </div>
+                        </div>
+
+                        <div class="risk-breakdown" id="sim-combos-container" style="display:none; background-color: rgba(255, 23, 68, 0.05); border: 1px dashed rgba(255, 23, 68, 0.2);">
+                            <div class="detail-section-title" style="color: var(--color-high);">🚨 Active Combinations Detected</div>
+                            <ul id="sim-combos-list" style="list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 12px; color: var(--text-secondary);">
+                                <!-- Loaded dynamically -->
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 6: BATCH CSV UPLOAD -->
+            <section id="view-upload" class="view-container">
+                <div class="glass-panel" style="padding: 32px;">
+                    <div class="detail-section-title">Step 1: Upload Batch Data</div>
+                    
+                    <div class="upload-zone" onclick="document.getElementById('csv-file-input').click()" id="drag-drop-zone">
+                        <i class="upload-icon" data-lucide="cloud-upload"></i>
+                        <span class="upload-heading">Drag and drop your transaction CSV here</span>
+                        <span class="upload-subtext">Supports .csv files exported from operations or legacy database grids.</span>
+                        <input type="file" id="csv-file-input" style="display:none;" accept=".csv" onchange="handleCSVFileSelected(this)">
+                    </div>
+
+                    <!-- Processing Card -->
+                    <div class="glass-panel upload-progress-card" id="batch-progress-card">
+                        <div class="progress-header">
+                            <span>Processing Transactions...</span>
+                            <span id="batch-progress-percentage">0%</span>
+                        </div>
+                        <div class="progress-bar-bg">
+                            <div class="progress-bar-fill" id="batch-progress-fill"></div>
+                        </div>
+                        <div class="upload-subtext" style="margin-top: 8px;" id="batch-progress-status">
+                            Initializing batch scoring algorithm...
+                        </div>
+                    </div>
+
+                    <!-- Batch Results Section -->
+                    <div id="batch-results-wrapper" style="display:none; margin-top: 32px;">
+                        <div class="table-controls" style="margin-bottom: 12px;">
+                            <div class="detail-section-title" style="margin-bottom:0;" id="batch-results-title">
+                                Step 2: Evaluation Results (0 Rows Analyzed)
+                            </div>
+                            <button class="btn" onclick="downloadScoredCSV()">
+                                <i data-lucide="file-down"></i> Download Scored Results (CSV)
+                            </button>
+                        </div>
+                        
+                        <div class="glass-panel table-card">
+                            <div class="table-wrapper">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Row ID</th>
+                                            <th>Initial Subsidy</th>
+                                            <th>Amount</th>
+                                            <th>IP Outsider</th>
+                                            <th>Rule Score</th>
+                                            <th>AI Prob</th>
+                                            <th>Final Risk</th>
+                                            <th>Verdict</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="batch-results-tbody">
+                                        <!-- Scored records preview -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- VIEW 7: COMPLIANCE REPORTS -->
+            <section id="view-reports" class="view-container">
+                <div class="compliance-export-actions">
+                    <button class="btn btn-secondary" onclick="exportReportToExcel()">
+                        <i data-lucide="sheet"></i> Export Excel Data
+                    </button>
+                    <button class="btn" onclick="window.print()">
+                        <i data-lucide="printer"></i> Export PDF / Print
+                    </button>
+                </div>
+                
+                <div class="report-row">
+                    <!-- Daily Summary Widget -->
+                    <div class="glass-panel" style="padding: 24px;">
+                        <div class="detail-section-title">Secure Threat Summary</div>
+                        <div class="stats-grid" style="grid-template-columns: 1fr; gap: 16px; margin-bottom: 0;">
+                            <div class="glass-panel stat-card" style="background: rgba(255,255,255,0.01);">
+                                <div class="stat-header"><span>Overall Risk Detection Rate</span></div>
+                                <div class="stat-value" style="color: var(--color-high);" id="rep-flag-rate">0.0%</div>
+                                <div class="stat-subtext">Percentage of threat scores &ge; 40.0%</div>
+                            </div>
+                            <div class="glass-panel stat-card" style="background: rgba(255,255,255,0.01);">
+                                <div class="stat-header"><span>Top Triggered Combo</span></div>
+                                <div class="stat-value" style="font-size: 20px; font-family:var(--font-body); font-weight:700;" id="rep-top-combo">Loading...</div>
+                                <div class="stat-subtext" id="rep-top-combo-desc">Most prevalent threat rule</div>
+                            </div>
+                            <div class="glass-panel stat-card" style="background: rgba(255,255,255,0.01);">
+                                <div class="stat-header"><span>Critical Severity Thresholds</span></div>
+                                <div class="stat-value" id="rep-critical-count">0</div>
+                                <div class="stat-subtext">Requires immediate auditor intervention</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Top Fraudsters table (by device / user ID) -->
+                    <div class="glass-panel" style="padding: 24px; overflow: hidden; display:flex; flex-direction: column;">
+                        <div class="detail-section-title">Highest Risk Flagged Accounts</div>
+                        <div class="table-wrapper" style="flex-grow: 1;">
+                            <table class="data-table" style="font-size: 13px;">
+                                <thead>
+                                    <tr>
+                                        <th>Customer ID</th>
+                                        <th>Total Subsidy</th>
+                                        <th>Spent Ratio</th>
+                                        <th>Triggered Flags</th>
+                                        <th>Max Score</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="rep-top-fraudsters-tbody">
+                                    <!-- Populated dynamically -->
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="glass-panel" style="padding: 24px;">
+                    <div class="detail-section-title">Combination and Priority Rule Effectiveness Matrix</div>
+                    <div class="table-wrapper">
+                        <table class="data-table" style="font-size: 13px;">
+                            <thead>
+                                <tr>
+                                    <th>Rule ID</th>
+                                    <th>Combination Rules / Threshold Flags</th>
+                                    <th>Assigned Risk Floor</th>
+                                    <th>Trigger Count</th>
+                                    <th>Effectiveness Ratio</th>
+                                </tr>
+                            </thead>
+                            <tbody id="rep-rule-matrix-tbody">
+                                <!-- Loaded dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- AUDITOR SLIDE-OVER DECISION PANEL -->
+    <div class="slide-panel-backdrop" id="decision-backdrop" onclick="closeAuditorPanel()">
+        <div class="slide-panel" onclick="event.stopPropagation()">
+            <div class="panel-header">
+                <div class="panel-title" id="auditor-panel-title">Auditor Operations Center</div>
+                <button class="panel-close-btn" onclick="closeAuditorPanel()">✕</button>
+            </div>
+            
+            <div class="slide-panel-scroll" style="overflow-y:auto; flex-grow:1;">
+                <div class="panel-body">
+                    <!-- Section 1: Alert Identity (loaded dynamically for alert target or transaction target) -->
+                    <div>
+                        <div class="detail-section-title" id="panel-identity-title">Transaction Identity</div>
+                        <div class="detail-grid" id="panel-identity-grid">
+                            <!-- Injected dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Section 2: Active combos or details -->
+                    <div id="aud-combos-section" style="display:none;">
+                        <div class="detail-section-title" style="color: var(--color-high);">Active Combinations / Details</div>
+                        <div style="background-color: rgba(255,23,68,0.03); border:1px solid rgba(255,23,68,0.1); border-radius: 8px; padding: 12px; font-size:13px;" id="aud-combos-text">
+                            <!-- Loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Section 3: Indication Matrix -->
+                    <div id="aud-matrix-section">
+                        <div class="detail-section-title" id="panel-matrix-title">14 Flag Indication Matrix</div>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px;" id="aud-flags-grid">
+                            <!-- Flag items loaded dynamically -->
+                        </div>
+                    </div>
+
+                    <!-- Section 4: Decisions -->
+                    <div>
+                        <div class="detail-section-title">Auditor Command Decision</div>
+                        <div class="decision-actions" id="aud-decision-actions">
+                            <!-- Injected dynamically based on alert vs transaction -->
+                        </div>
+                    </div>
+
+                    <!-- Section 5: Notes input -->
+                    <div>
+                        <div class="detail-section-title">Operational Audit Notes</div>
+                        <textarea id="aud-notes" class="notes-input" placeholder="Append audit observations, NIK registration check notes, or fraud pattern investigation results..."></textarea>
+                    </div>
+
+                    <!-- Section 6: Audit History logs -->
+                    <div>
+                        <div class="detail-section-title">Transaction Action Audit Trail</div>
+                        <div class="audit-log-list" id="aud-logs">
+                            <!-- Audit history log items -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ALERT TOASTS CONTAINER -->
+    <div class="toast-container" id="global-toast-container"></div>
+
+    <!-- Frontend logic script -->
+    <script src="/static/app.js"></script>
+</body>
+</html>

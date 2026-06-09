@@ -453,10 +453,11 @@ body {
     outline: none;
     cursor: pointer;
     font-family: var(--font-body);
+    color-scheme: dark;
 }
 .filter-select option {
     background-color: #0b0e14;
-    color: var(--text-primary);
+    color: #ffffff;
 }
 
 .filter-select:focus {

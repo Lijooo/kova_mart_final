@@ -1579,7 +1579,6 @@ function loadComplianceReports() {
         { id: "C6", score: 75, name: "High Frequency + Repeated Purchase + Same Product" },
         { id: "C7", score: 70, name: "Failed Logins + Payment Retry + High Frequency" },
         { id: "C8", score: 65, name: "Failed Logins + Payment Retry + Invalid Card" },
-        { id: "C13", score: 65, name: "Duplicate Account + Payment Retry + Invalid Card" },
         { id: "C9", score: 60, name: "Duplicate Account + Failed Logins" },
         { id: "C10", score: 55, name: "Subsidy Exhausted + High Frequency" },
         { id: "C11", score: 50, name: "Unverified ID + Invalid KKS + Invalid Card" },
@@ -1618,7 +1617,6 @@ function loadComplianceReports() {
         if (flagMap.high_frequency && flagMap.repeated_purchase && flagMap.same_product_high) comboCounts["C6"]++;
         if (flagMap.failed_login && flagMap.payment_retry && flagMap.high_frequency) comboCounts["C7"]++;
         if (flagMap.failed_login && flagMap.payment_retry && flagMap.card_invalid) comboCounts["C8"]++;
-        if (flagMap.duplicate_account && flagMap.payment_retry && flagMap.card_invalid) comboCounts["C13"]++;
         if (flagMap.duplicate_account && flagMap.failed_login) comboCounts["C9"]++;
         if (flagMap.subsidy_exhausted && flagMap.high_frequency) comboCounts["C10"]++;
         if (flagMap.id_not_verified && flagMap.kks_not_valid && flagMap.card_invalid) comboCounts["C11"]++;
@@ -1642,7 +1640,7 @@ function loadComplianceReports() {
             <td>${c.name}</td>
             <td>${c.score}%</td>
             <td>${count} triggers</td>
-            <td>${effectiveness} weight</td>
+            <td>${effectiveness} Trigger Share</td>
         `;
         rBody.appendChild(tr);
     });
@@ -1652,16 +1650,17 @@ function exportReportToExcel() {
     const csvRows = [];
     csvRows.push(["Risk Rule Audit Effectiveness Export"]);
     csvRows.push([]);
-    csvRows.push(["Rule ID", "Rule Description", "Risk Threshold Floor", "Trigger Occurrence count"]);
+    csvRows.push(["Rule ID", "Rule Description", "Risk Threshold Floor", "Trigger Occurrence count", "Trigger Share"]);
    
     document.querySelectorAll('#rep-rule-matrix-tbody tr').forEach(tr => {
         const tds = tr.querySelectorAll('td');
-        if (tds.length >= 4) {
+        if (tds.length >= 5) {
             csvRows.push([
                 tds[0].innerText,
                 `"${tds[1].innerText}"`,
                 tds[2].innerText,
-                tds[3].innerText
+                tds[3].innerText,
+                tds[4].innerText
             ].join(","));
         }
     });

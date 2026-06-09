@@ -159,14 +159,6 @@ FRAUD_COMBINATIONS = [
         "tier":        "MEDIUM",
         "reason":      "Unverified identity combined with duplicate account detection",
     },
-    {
-        "combo_id":    "C13",
-        "name":        "Duplicate Account + Payment Retry + Invalid Card",
-        "flags":       ["flag_duplicate_account", "flag_payment_retry", "flag_card_invalid"],
-        "combo_score": 65,
-        "tier":        "HIGH",
-        "reason":      "Fake account attempting repeated payments with invalid card",
-    },
 ]
 
 MULTI_COMBO_ESCALATION = 5  # % added per extra combo beyond the first
@@ -499,7 +491,6 @@ def display_result(result):
                 ("C6",   75, "High Frequency + Repeated Purchase + Same Product"),
                 ("C7",   70, "Failed Logins + Payment Retry + High Frequency"),
                 ("C8",   65, "Failed Logins + Payment Retry + Invalid Card"),
-                ("C13",  65, "Duplicate Account + Payment Retry + Invalid Card"),
                 ("C9",   60, "Duplicate Account + Failed Logins"),
                 ("C10",  55, "Subsidy Exhausted + High Frequency"),
             ]),

@@ -267,7 +267,8 @@ function switchView(viewName) {
         'members': 'Member Registry & Enrollment',
         'simulator': 'Interactive Risk Simulator',
         'upload': 'Batch Data Processing Engine',
-        'reports': 'Compliance & Audit Reporting'
+        'reports': 'Compliance & Audit Reporting',
+        'audit-doc': 'Alert Audit Document'
     };
     document.getElementById('view-title').textContent = titles[viewName] || 'Overview';
    
@@ -280,6 +281,8 @@ function switchView(viewName) {
         fetchAlerts();
     } else if (viewName === 'members') {
         fetchMembers();
+    } else if (viewName === 'audit-doc') {
+        fetchAlerts(true);
     }
 }
 

@@ -454,6 +454,10 @@ body {
     cursor: pointer;
     font-family: var(--font-body);
 }
+.filter-select option {
+    background-color: #0b0e14;
+    color: var(--text-primary);
+}
 
 .filter-select:focus {
     border-color: #3b82f6;
@@ -516,6 +520,9 @@ body {
     width: 100%;
     border-collapse: collapse;
     text-align: left;
+}
+.data-table th, .data-table td {
+    white-space: nowrap;
 }
 
 .data-table th {
@@ -1605,6 +1612,10 @@ input:checked + .slider-toggle:before {
     border-left: 4px solid var(--color-critical);
     background: rgba(255, 23, 68, 0.01);
     animation: slideDown 0.2s ease-out;
+    white-space: normal !important;
+}
+.alert-details-container * {
+    white-space: normal !important;
 }
 .details-grid {
     display: grid;

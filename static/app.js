@@ -218,6 +218,9 @@ document.addEventListener("DOMContentLoaded", () => {
    
     // Start background poller (every 10 seconds to sync database changes in real-time)
     startDatabasePoller();
+
+    // Initialize custom select dropdowns
+    initCustomDropdowns();
 });
 
 // View Routing switcher
@@ -2317,3 +2320,150 @@ function exportDocAlertsToCSV() {
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
 }
+
+// Override select value setter to catch programmatical select changes
+try {
+    const originalValueDescriptor = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value');
+    if (originalValueDescriptor && originalValueDescriptor.set) {
+        Object.defineProperty(HTMLSelectElement.prototype, 'value', {
+            get() {
+                return originalValueDescriptor.get.call(this);
+            },
+            set(newValue) {
+                originalValueDescriptor.set.call(this, newValue);
+                // Dispatch custom event to notify custom select components
+                const event = new CustomEvent('selectvaluechanged', { detail: { value: newValue } });
+                this.dispatchEvent(event);
+            }
+        });
+    }
+} catch (e) {
+    console.error("Error overriding HTMLSelectElement prototype value descriptor:", e);
+}
+
+// Custom Select Dropdown system initialization
+function initCustomDropdowns() {
+    const selects = document.querySelectorAll('select.filter-select');
+    selects.forEach(select => {
+        // Skip if already initialized
+        if (select.dataset.customInitialized) return;
+        select.dataset.customInitialized = "true";
+
+        // Create the container
+        const container = document.createElement('div');
+        container.className = 'custom-select-container';
+        container.id = `custom-select-wrapper-${select.id}`;
+        
+        // Create trigger
+        const trigger = document.createElement('div');
+        trigger.className = 'custom-select-trigger';
+        
+        const textSpan = document.createElement('span');
+        trigger.appendChild(textSpan);
+        
+        // Create arrow SVG element inline
+        const arrowSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+        arrowSvg.setAttribute("width", "16");
+        arrowSvg.setAttribute("height", "16");
+        arrowSvg.setAttribute("viewBox", "0 0 24 24");
+        arrowSvg.setAttribute("fill", "none");
+        arrowSvg.setAttribute("stroke", "currentColor");
+        arrowSvg.setAttribute("stroke-width", "2");
+        arrowSvg.setAttribute("stroke-linecap", "round");
+        arrowSvg.setAttribute("stroke-linejoin", "round");
+        arrowSvg.setAttribute("class", "custom-select-arrow");
+        
+        const polyline = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+        polyline.setAttribute("points", "6 9 12 15 18 9");
+        arrowSvg.appendChild(polyline);
+        
+        trigger.appendChild(arrowSvg);
+        
+        // Create options container
+        const optionsContainer = document.createElement('div');
+        optionsContainer.className = 'custom-select-options';
+        
+        // Function to rebuild options
+        const rebuildOptions = () => {
+            optionsContainer.innerHTML = '';
+            Array.from(select.options).forEach(opt => {
+                const optDiv = document.createElement('div');
+                optDiv.className = 'custom-select-option';
+                optDiv.dataset.value = opt.value;
+                optDiv.innerHTML = opt.innerHTML; // preserves risk color emojis
+                
+                if (opt.value === select.value) {
+                    optDiv.classList.add('selected');
+                    textSpan.innerHTML = opt.innerHTML;
+                }
+                
+                optDiv.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    select.value = opt.value;
+                    
+                    // Dispatch change event to trigger native onchange handlers
+                    select.dispatchEvent(new Event('change'));
+                    
+                    // Update visual state
+                    container.classList.remove('open');
+                });
+                
+                optionsContainer.appendChild(optDiv);
+            });
+        };
+        
+        rebuildOptions();
+        
+        container.appendChild(trigger);
+        container.appendChild(optionsContainer);
+        
+        // Insert custom container in place of the select element
+        select.parentNode.insertBefore(container, select.nextSibling);
+        
+        // Hide native select
+        select.style.display = 'none';
+        
+        // Toggle dropdown open state
+        trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            // Close all other custom dropdowns first
+            document.querySelectorAll('.custom-select-container').forEach(c => {
+                if (c !== container) c.classList.remove('open');
+            });
+            container.classList.toggle('open');
+        });
+        
+        // Sync custom dropdown visual state when native select value changes
+        const syncValue = () => {
+            const val = select.value;
+            const options = optionsContainer.querySelectorAll('.custom-select-option');
+            options.forEach(optDiv => {
+                if (optDiv.dataset.value === val) {
+                    optDiv.classList.add('selected');
+                    textSpan.innerHTML = optDiv.innerHTML;
+                } else {
+                    optDiv.classList.remove('selected');
+                }
+            });
+        };
+        
+        select.addEventListener('change', syncValue);
+        select.addEventListener('selectvaluechanged', syncValue);
+    });
+}
+
+// Close custom select dropdowns when clicking outside
+document.addEventListener('click', () => {
+    document.querySelectorAll('.custom-select-container').forEach(c => {
+        c.classList.remove('open');
+    });
+});
+
+// Close custom select dropdowns when Escape is pressed
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        document.querySelectorAll('.custom-select-container').forEach(c => {
+            c.classList.remove('open');
+        });
+    }
+});

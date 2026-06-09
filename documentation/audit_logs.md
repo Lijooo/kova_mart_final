@@ -4,6 +4,43 @@ A complete log of system initializations, checks, decisions, and manual auditor 
 
 | Log ID | Target | Target ID | Action | Notes | Auditor | Timestamp |
 |--------|--------|-----------|--------|-------|---------|-----------|
+| #115 | ALERT | 709 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:50.537046 |
+| #114 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:00:50.537046 |
+| #113 | ALERT | 708 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:31.024691 |
+| #112 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:00:31.024691 |
+| #111 | ALERT | 707 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:08.034266 |
+| #110 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:00:08.034266 |
+| #109 | ALERT | 706 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:07.974728 |
+| #108 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:00:07.974728 |
+| #107 | MEMBER | 1001 | **BLOCKED** | Member verification status updated to Blocked following Alert ALT-20260609-M1001-31 resolution. | Auditor Test User | 2026-06-09T21:41:35.025688 |
+| #106 | ALERT | 705 | **RESOLVED** | Suspected identity theft. Block this account. | Auditor Test User | 2026-06-09T21:41:35.025688 |
+| #105 | ALERT | 705 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:41:28.734162 |
+| #104 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:41:28.734162 |
+| #103 | ALERT | 704 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:41:28.669551 |
+| #102 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:41:28.669551 |
+| #101 | TRANSACTION | 1041 | **CREATED** | Generated transaction for Hadi Siregar. Score: 14.0%. Status: APPROVED. | System | 2026-06-09T21:36:35.213460 |
+| #100 | ALERT | 703 | **TRIGGERED** | Alert ALT-20260609-TX1040 generated for Joko Siregar transaction ID 1040. | System | 2026-06-09T21:36:33.047178 |
+| #99 | TRANSACTION | 1040 | **CREATED** | Generated transaction for Joko Siregar. Score: 100%. Status: REVIEW. | System | 2026-06-09T21:36:33.047178 |
+| #98 | MEMBER | 1001 | **BLOCKED** | Member verification status updated to Blocked following Alert ALT-20260609-M1001-84 resolution. | Auditor Test User | 2026-06-09T21:31:45.474118 |
+| #97 | ALERT | 702 | **RESOLVED** | Suspected identity theft. Block this account. | Auditor Test User | 2026-06-09T21:31:45.474118 |
+| #96 | ALERT | 702 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:31:37.648016 |
+| #95 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:31:37.648016 |
+| #94 | ALERT | 701 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:31:37.611480 |
+| #93 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:31:37.611480 |
+| #92 | MEMBER | 1001 | **BLOCKED** | Member verification status updated to Blocked following Alert ALT-20260609-M1001-92 resolution. | Auditor Test User | 2026-06-09T21:07:06.077785 |
+| #91 | ALERT | 700 | **RESOLVED** | Suspected identity theft. Block this account. | Auditor Test User | 2026-06-09T21:07:06.077785 |
+| #90 | ALERT | 700 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:07:01.890868 |
+| #89 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:07:01.890868 |
+| #88 | ALERT | 699 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:07:01.855351 |
+| #87 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:07:01.855351 |
+| #86 | ALERT | 698 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:06:52.466140 |
+| #85 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:06:52.466140 |
+| #84 | ALERT | 697 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:06:52.424922 |
+| #83 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:06:52.424922 |
+| #82 | ALERT | 696 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:05:56.683116 |
+| #81 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:05:56.683116 |
+| #80 | ALERT | 695 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T21:05:56.643399 |
+| #79 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T21:05:56.643399 |
 | #78 | TRANSACTION | 1039 | **CREATED** | Generated transaction for Sri Setiawan. Score: 6.8%. Status: APPROVED. | System | 2026-06-08T17:35:43.539545 |
 | #77 | TRANSACTION | 1038 | **CREATED** | Generated transaction for Budi Siregar. Score: 25.7%. Status: APPROVED. | System | 2026-06-08T17:35:43.152368 |
 | #76 | TRANSACTION | 1037 | **CREATED** | Generated transaction for Dewi Kusuma. Score: 34.9%. Status: APPROVED. | System | 2026-06-08T17:35:42.734971 |

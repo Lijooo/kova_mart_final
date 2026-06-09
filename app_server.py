@@ -473,10 +473,15 @@ def handle_members():
                     rec_act = "; ".join([rec_actions.get(i, "Audit profile.") for i in dup_indicators])
                     
                     # Ensure alert_id is unique
-                    alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{ex_id:03d}"
-                    cursor.execute("SELECT id FROM alerts WHERE alert_id = ?", (alert_id,))
-                    if cursor.fetchone():
-                        alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{ex_id:03d}-{random.randint(10, 99)}"
+                    base_alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{ex_id:03d}"
+                    alert_id = base_alert_id
+                    suffix_attempts = 0
+                    while True:
+                        cursor.execute("SELECT id FROM alerts WHERE alert_id = ?", (alert_id,))
+                        if not cursor.fetchone():
+                            break
+                        suffix_attempts += 1
+                        alert_id = f"{base_alert_id}-{random.randint(10, 99) if suffix_attempts < 5 else random.randint(100, 9999)}"
                         
                     cursor.execute("""
                         INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, detection_timestamp, status, severity_level, recommended_action)
@@ -534,10 +539,15 @@ def handle_members():
                 }
                 rec_act = "; ".join([rec_actions.get(i, "Audit profile.") for i in indicators])
                 
-                alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{member_id:03d}"
-                cursor.execute("SELECT id FROM alerts WHERE alert_id = ?", (alert_id,))
-                if cursor.fetchone():
-                    alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{member_id:03d}-{random.randint(10, 99)}"
+                base_alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-M{member_id:03d}"
+                alert_id = base_alert_id
+                suffix_attempts = 0
+                while True:
+                    cursor.execute("SELECT id FROM alerts WHERE alert_id = ?", (alert_id,))
+                    if not cursor.fetchone():
+                        break
+                    suffix_attempts += 1
+                    alert_id = f"{base_alert_id}-{random.randint(10, 99) if suffix_attempts < 5 else random.randint(100, 9999)}"
                 
                 cursor.execute("""
                     INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, detection_timestamp, status, severity_level, recommended_action)

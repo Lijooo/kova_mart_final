@@ -4,6 +4,12 @@ A complete log of system initializations, checks, decisions, and manual auditor 
 
 | Log ID | Target | Target ID | Action | Notes | Auditor | Timestamp |
 |--------|--------|-----------|--------|-------|---------|-----------|
+| #121 | ALERT | 712 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:06:33.235161 |
+| #120 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:06:33.235161 |
+| #119 | ALERT | 711 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:06:33.159858 |
+| #118 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:06:33.159858 |
+| #117 | ALERT | 710 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:05:33.191193 |
+| #116 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:05:33.191193 |
 | #115 | ALERT | 709 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:50.537046 |
 | #114 | MEMBER | 1001 | **FLAGGED** | Member flagged due to duplicate registration attempt by 'Eko Wijaya' (NIK: 3273999988880001, Phone: 081299990001, KKS: 1012999988880001). | System | 2026-06-09T23:00:50.537046 |
 | #113 | ALERT | 708 | **TRIGGERED** | Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details. | System | 2026-06-09T23:00:31.024691 |

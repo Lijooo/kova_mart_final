@@ -2,6 +2,45 @@
 
 Official record of all generated security alerts, threat analyses, and investigation outcomes.
 
+## Alert ALT-20260609-M1001-71 - OPEN
+- **Target Type:** MEMBER (ID: 1001)
+- **Customer Name:** Eko Wijaya (ID: 1001)
+- **Threat Score:** 100.0%
+- **Severity Level:** Critical
+- **Triggered Indicators:** `["Duplicate NIK", "Duplicate Phone Number", "Duplicate KKS Card"]`
+- **Recommended Actions:** *Freeze account immediately. Contact citizen registry to verify identity.; Require SMS verification. Review linked profiles.; Flag subsidy card. Block transactions.*
+- **Detection Timestamp:** 2026-06-09T23:06:33.235161
+- **Investigation Timeline:**
+  - **[2026-06-09T23:06:33.235161]** (System): TRIGGERED - Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details.
+
+---
+
+## Alert ALT-20260609-M1001-97 - OPEN
+- **Target Type:** MEMBER (ID: 1001)
+- **Customer Name:** Eko Wijaya (ID: 1001)
+- **Threat Score:** 100.0%
+- **Severity Level:** Critical
+- **Triggered Indicators:** `["Duplicate NIK", "Duplicate Phone Number", "Duplicate KKS Card"]`
+- **Recommended Actions:** *Freeze account immediately. Contact citizen registry to verify identity.; Require SMS verification. Review linked profiles.; Flag subsidy card. Block transactions.*
+- **Detection Timestamp:** 2026-06-09T23:06:33.159858
+- **Investigation Timeline:**
+  - **[2026-06-09T23:06:33.159858]** (System): TRIGGERED - Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details.
+
+---
+
+## Alert ALT-20260609-M1001-77 - OPEN
+- **Target Type:** MEMBER (ID: 1001)
+- **Customer Name:** Eko Wijaya (ID: 1001)
+- **Threat Score:** 100.0%
+- **Severity Level:** Critical
+- **Triggered Indicators:** `["Duplicate NIK", "Duplicate Phone Number", "Duplicate KKS Card"]`
+- **Recommended Actions:** *Freeze account immediately. Contact citizen registry to verify identity.; Require SMS verification. Review linked profiles.; Flag subsidy card. Block transactions.*
+- **Detection Timestamp:** 2026-06-09T23:05:33.191193
+- **Investigation Timeline:**
+  - **[2026-06-09T23:05:33.191193]** (System): TRIGGERED - Security alert generated for existing member Eko Wijaya (ID: 1001) due to duplicate details.
+
+---
+
 ## Alert ALT-20260609-M1001-19 - OPEN
 - **Target Type:** MEMBER (ID: 1001)
 - **Customer Name:** Eko Wijaya (ID: 1001)

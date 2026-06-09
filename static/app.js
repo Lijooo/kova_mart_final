@@ -444,11 +444,8 @@ async function fetchAlerts(silent = false) {
                 }
             }
             
-            const alertsTable = document.getElementById('alerts-table-body');
-            if (alertsTable) handleAlertsFilter();
-            
-            const auditDocList = document.getElementById('audit-doc-alert-list');
-            if (auditDocList) handleAuditDocFilter();
+            const auditDocTable = document.getElementById('audit-doc-table-body');
+            if (auditDocTable) handleAuditDocFilter();
             
             updateAlertBellBadge();
         }
@@ -1867,7 +1864,7 @@ async function populateBellDropdown() {
         item.onclick = () => {
             closeBellDropdown();
             switchView('audit-doc');
-            selectAuditDocAlert(alt.id);
+            selectAuditDocAlertInTable(alt.id);
         };
         
         let color = 'var(--color-low)';
@@ -1893,7 +1890,7 @@ function viewAllAlerts() {
 }
 
 // ─── ALERT AUDIT DOCUMENT VIEW & EXPORT ──────────────────────────────────────
-let activeDocAlert = null;
+let filteredAlertsForDoc = [];
 
 function handleAuditDocFilter() {
     const searchInput = document.getElementById('audit-doc-search-input');
@@ -1901,8 +1898,10 @@ function handleAuditDocFilter() {
     const searchVal = searchInput.value.toLowerCase().trim();
     const severityFilter = document.getElementById('filter-doc-severity').value;
     const statusFilter = document.getElementById('filter-doc-status').value;
+    const ruleFilter = document.getElementById('filter-doc-rule-id').value;
+    const dateFilter = document.getElementById('filter-doc-date').value; // 'YYYY-MM-DD' or empty
 
-    const filtered = allAlerts.filter(alt => {
+    filteredAlertsForDoc = allAlerts.filter(alt => {
         const matchSearch = alt.alert_id.toLowerCase().includes(searchVal) ||
                             alt.customer_name.toLowerCase().includes(searchVal) ||
                             alt.customer_id.toString().includes(searchVal);
@@ -1910,147 +1909,153 @@ function handleAuditDocFilter() {
         const matchSeverity = (severityFilter === 'ALL' || (alt.severity_level || '').toUpperCase() === severityFilter.toUpperCase());
         const matchStatus = (statusFilter === 'ALL' || alt.status === statusFilter);
         
-        return matchSearch && matchSeverity && matchStatus;
+        const combo = findTriggeredCombination(alt);
+        const matchRule = (ruleFilter === 'ALL' || (combo && combo.id === ruleFilter));
+        
+        const matchDate = !dateFilter || alt.detection_timestamp.startsWith(dateFilter);
+        
+        return matchSearch && matchSeverity && matchStatus && matchRule && matchDate;
     });
 
-    renderAuditDocAlertList(filtered);
+    renderAuditDocTable(filteredAlertsForDoc);
 }
 
-function renderAuditDocAlertList(alertsList) {
-    const container = document.getElementById('audit-doc-alert-list');
-    if (!container) return;
-    container.innerHTML = '';
+function getAlertExtraDetails(alt) {
+    const member = allMembers.find(m => m.id === alt.customer_id);
+    const combo = findTriggeredCombination(alt);
+    const txId = alt.target_type === 'transaction' ? alt.target_id : 'N/A';
+    const amount = alt.transaction_details ? 'Rp ' + parseFloat(alt.transaction_details.transaction_amount).toLocaleString('id-ID') : 'N/A';
+    const notesHistory = alt.auditHistory || [];
+    
+    // Find latest audit notes
+    const latestNoteLog = notesHistory.find(l => l.note && l.note.trim() !== '');
+    const notes = latestNoteLog ? latestNoteLog.note : 'No audit notes appended.';
+    
+    // Find latest action taken (other than the initial trigger)
+    const auditLogs = notesHistory.filter(l => l.action !== 'triggered');
+    const actionTaken = auditLogs.length > 0 ? auditLogs[0].action.toUpperCase() : 'PENDING AUDIT';
+    
+    return {
+        member,
+        combo,
+        txId,
+        amount,
+        notes,
+        actionTaken
+    };
+}
+
+function renderAuditDocTable(alertsList) {
+    const tbody = document.getElementById('audit-doc-table-body');
+    if (!tbody) return;
+    tbody.innerHTML = '';
 
     if (alertsList.length === 0) {
-        container.innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted); font-size:13px;">No matching alerts found</div>';
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px; color:var(--text-muted);">No matching alerts found</td></tr>';
         return;
     }
 
     alertsList.forEach(alt => {
-        const item = document.createElement('div');
-        item.className = 'doc-alert-item';
-        if (activeDocAlert && activeDocAlert.id === alt.id) {
-            item.classList.add('active');
-        }
-
+        const tr = document.createElement('tr');
+        tr.className = 'audit-doc-row';
+        tr.id = `alert-row-${alt.id}`;
+        
+        const details = getAlertExtraDetails(alt);
+        
         let badgeClass = 'badge-low';
         const sev = (alt.severity_level || '').toUpperCase();
         if (sev === 'CRITICAL') badgeClass = 'badge-critical';
         else if (sev === 'HIGH') badgeClass = 'badge-high';
         else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
 
-        let statusBadge = `status-pending`;
-        if (alt.status === 'Resolved') statusBadge = 'status-approved';
-        else if (alt.status === 'Under Review') statusBadge = 'status-review';
+        let statusClass = 'status-pending';
+        if (alt.status === 'Resolved') statusClass = 'status-approved';
+        else if (alt.status === 'Under Review') statusClass = 'status-review';
 
-        item.innerHTML = `
-            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
-                <span style="font-family:monospace; font-weight:600; font-size:13px; color:var(--text-primary);">${alt.alert_id}</span>
-                <span class="status-badge ${statusBadge}" style="font-size:10px; padding:2px 6px;">${alt.status}</span>
-            </div>
-            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">
-                <strong>${alt.customer_name}</strong> (ID: #${alt.customer_id})
-            </div>
-            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
-                <span class="badge ${badgeClass}" style="transform:scale(0.85); transform-origin:left center;"><span class="badge-dot"></span>${alt.severity_level}</span>
-                <span style="color:var(--text-muted); font-size:10px;">${new Date(alt.detection_timestamp).toLocaleDateString('id-ID')}</span>
-            </div>
+        tr.innerHTML = `
+            <td style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${alt.alert_id}</td>
+            <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
+            <td style="font-family: monospace;">${details.txId}</td>
+            <td>#${alt.customer_id} ${alt.customer_name}</td>
+            <td style="font-weight: 700;">${alt.risk_score}%</td>
+            <td><span class="badge ${badgeClass}"><span class="badge-dot"></span>${alt.severity_level}</span></td>
+            <td style="font-family: monospace; font-weight: 600;">${details.combo ? details.combo.id : 'N/A'}</td>
+            <td>${details.combo ? details.combo.name : (alt.target_type === 'member' ? 'Member Registry Anomaly' : 'Individual Indicators Only')}</td>
+            <td><span class="status-badge ${statusClass}">${alt.status}</span></td>
+            <td style="font-weight: 600; text-transform: uppercase; font-size: 11px;">${details.actionTaken}</td>
         `;
 
-        item.onclick = () => {
-            document.querySelectorAll('.doc-alert-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            selectAuditDocAlert(alt.id);
+        // Click handler to toggle details sub-row
+        tr.onclick = (e) => {
+            // Prevent toggling if user clicks a link or button inside the row
+            if (e.target.tagName === 'BUTTON' || e.target.tagName === 'A') return;
+            toggleAlertRowDetails(alt.id, tr);
         };
 
-        container.appendChild(item);
+        tbody.appendChild(tr);
     });
 }
 
-function selectAuditDocAlert(alertId) {
-    const alert = allAlerts.find(a => a.id === alertId);
-    if (!alert) return;
-    activeDocAlert = alert;
+function toggleAlertRowDetails(id, tr) {
+    const nextRow = tr.nextSibling;
+    if (nextRow && nextRow.classList && nextRow.classList.contains('alert-details-row')) {
+        // Already expanded, remove it
+        tr.classList.remove('expanded');
+        nextRow.remove();
+        return;
+    }
 
-    // Show report container, hide empty state
-    document.getElementById('document-empty-state').style.display = 'none';
-    document.getElementById('document-report-container').style.display = 'flex';
-
-    // 1. Incident Overview
-    document.getElementById('rep-meta-alert-id').textContent = alert.alert_id;
-    const statusBadge = document.getElementById('rep-meta-status');
-    statusBadge.textContent = alert.status;
-    statusBadge.className = 'status-badge ' + (alert.status === 'Resolved' ? 'status-approved' : alert.status === 'Under Review' ? 'status-review' : 'status-pending');
-
-    const severityBadge = document.getElementById('rep-meta-severity');
-    severityBadge.textContent = alert.severity_level;
-    let badgeClass = 'badge-low';
-    const sev = (alert.severity_level || '').toUpperCase();
-    if (sev === 'CRITICAL') badgeClass = 'badge-critical';
-    else if (sev === 'HIGH') badgeClass = 'badge-high';
-    else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
-    severityBadge.className = 'badge ' + badgeClass;
-
-    document.getElementById('rep-meta-timestamp').textContent = new Date(alert.detection_timestamp).toLocaleString('id-ID');
-
-    // 2. Target Subject Profile
-    document.getElementById('rep-subj-name').textContent = alert.customer_name;
-    document.getElementById('rep-subj-id').textContent = '#' + alert.customer_id;
-
-    // Find associated member details
-    const member = allMembers.find(m => m.id === alert.customer_id);
-    if (member) {
-        document.getElementById('rep-subj-nik').textContent = member.nik;
-        document.getElementById('rep-subj-kks').textContent = member.kks_card;
-        document.getElementById('rep-subj-phone').textContent = member.phone;
-        document.getElementById('rep-subj-address').textContent = member.address;
-        
-        // 4. Device & Network Signature
-        const deviceData = parseDeviceSignature(member.device_info);
-        document.getElementById('rep-device-friendly').textContent = deviceData.device;
-        document.getElementById('rep-device-os').textContent = deviceData.os;
-        document.getElementById('rep-device-browser').textContent = deviceData.browser;
-        document.getElementById('rep-device-ip').textContent = member.ip_address;
-        document.getElementById('rep-device-raw-ua').textContent = member.device_info;
-
-        // Accounts on same device
-        const sameDeviceCount = allMembers.filter(m => m.device_info === member.device_info).length || 1;
-        let deviceRiskText = '';
-        if (sameDeviceCount > 1) {
-            deviceRiskText = `Used by ${sameDeviceCount} accounts — possible duplicate account risk.`;
-        } else if (alert.transaction_details && alert.transaction_details.login_location_changed === 1) {
-            deviceRiskText = "New device — review if combined with other risk signals.";
-        } else {
-            deviceRiskText = "Known device for this member.";
+    // Collapse any other expanded rows first
+    document.querySelectorAll('.audit-doc-row').forEach(row => {
+        if (row !== tr && row.classList.contains('expanded')) {
+            row.classList.remove('expanded');
+            if (row.nextSibling && row.nextSibling.classList && row.nextSibling.classList.contains('alert-details-row')) {
+                row.nextSibling.remove();
+            }
         }
-        document.getElementById('rep-device-accounts-summary').textContent = deviceRiskText;
-    } else {
-        document.getElementById('rep-subj-nik').textContent = 'N/A';
-        document.getElementById('rep-subj-kks').textContent = 'N/A';
-        document.getElementById('rep-subj-phone').textContent = 'N/A';
-        document.getElementById('rep-subj-address').textContent = 'N/A';
-        document.getElementById('rep-device-friendly').textContent = 'N/A';
-        document.getElementById('rep-device-os').textContent = 'N/A';
-        document.getElementById('rep-device-browser').textContent = 'N/A';
-        document.getElementById('rep-device-ip').textContent = 'N/A';
-        document.getElementById('rep-device-raw-ua').textContent = 'N/A';
-        document.getElementById('rep-device-accounts-summary').textContent = 'N/A';
+    });
+
+    tr.classList.add('expanded');
+    
+    // Find alert details
+    const alt = allAlerts.find(a => a.id === id);
+    if (!alt) return;
+    
+    const details = getAlertExtraDetails(alt);
+    const member = details.member;
+    
+    // Build device details section if it exists and is not N/A
+    let deviceHTML = '';
+    if (member && member.device_info && member.device_info !== 'N/A' && member.device_info !== '') {
+        const deviceData = parseDeviceSignature(member.device_info);
+        if (deviceData.device !== 'Unknown Device' || deviceData.os !== 'Unknown OS' || deviceData.browser !== 'Unknown Browser') {
+            const sameDeviceCount = allMembers.filter(m => m.device_info === member.device_info).length || 1;
+            let deviceRiskText = '';
+            if (sameDeviceCount > 1) {
+                deviceRiskText = `Used by ${sameDeviceCount} accounts — possible duplicate account risk.`;
+            } else if (alt.transaction_details && alt.transaction_details.login_location_changed === 1) {
+                deviceRiskText = "New device — review if combined with other risk signals.";
+            } else {
+                deviceRiskText = "Known device for this member.";
+            }
+            
+            deviceHTML = `
+                <div class="detail-block" style="grid-column: span 2;">
+                    <div class="detail-label">Device & Network Signature</div>
+                    <div class="detail-content" style="background: rgba(255, 255, 255, 0.02); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); margin-top: 4px;">
+                        <strong>Device Used:</strong> ${deviceData.device} &nbsp;•&nbsp; 
+                        <strong>Operating System:</strong> ${deviceData.os} &nbsp;•&nbsp; 
+                        <strong>Web Browser:</strong> ${deviceData.browser} &nbsp;•&nbsp; 
+                        <strong>IP Address / Log:</strong> ${member.ip_address || 'N/A'}
+                        <div style="font-size: 11px; color: var(--color-high); margin-top: 6px; font-weight: 500;">
+                            ℹ️ ${deviceRiskText}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
     }
 
-    // 3. Threat Evaluation & Rules
-    document.getElementById('rep-threat-score').textContent = alert.risk_score + '%';
-    
-    // Map combination rules
-    const combo = findTriggeredCombination(alert);
-    if (combo) {
-        document.getElementById('rep-threat-vector-id').textContent = combo.id;
-        document.getElementById('rep-threat-vector-name').textContent = combo.name;
-    } else {
-        document.getElementById('rep-threat-vector-id').textContent = 'N/A';
-        document.getElementById('rep-threat-vector-name').textContent = alert.target_type === 'member' ? 'Member Registry Anomaly' : 'Individual Indicators Only';
-    }
-    
-    // Human readable individual flags
     const flagLabelsMap = {
         "flag_ip_outsider": "Foreign IP Address",
         "flag_repeated_purchase": "Repeated Purchase >10",
@@ -2067,54 +2072,45 @@ function selectAuditDocAlert(alertId) {
         "flag_subsidy_exhausted": "Subsidy Exhausted",
         "flag_kiosk": "Kiosk Transaction"
     };
+    const mappedFlags = alt.indicators.map(f => flagLabelsMap[f] || f).join(' | ');
+
+    // Create the details row
+    const detailsTr = document.createElement('tr');
+    detailsTr.className = 'alert-details-row';
+    detailsTr.innerHTML = `
+        <td colspan="10">
+            <div class="alert-details-container">
+                <div class="details-grid">
+                    <div class="detail-block">
+                        <div class="detail-label">Triggered Heuristic Indicators</div>
+                        <div class="detail-content" style="color: var(--color-critical); font-family: monospace; font-weight: 600;">
+                            ${mappedFlags}
+                        </div>
+                    </div>
+                    
+                    <div class="detail-block">
+                        <div class="detail-label">Transaction Specifics</div>
+                        <div class="detail-content">
+                            <strong>Amount:</strong> ${details.amount} &nbsp;•&nbsp; 
+                            <strong>Recommended Action:</strong> <span style="font-style: italic;">${alt.recommended_action}</span>
+                        </div>
+                    </div>
+                    
+                    <div class="detail-block" style="grid-column: span 2;">
+                        <div class="detail-label">Auditor Recommendation & Notes</div>
+                        <div class="detail-content" style="font-style: italic;">
+                            ${details.notes}
+                        </div>
+                    </div>
+
+                    ${deviceHTML}
+                </div>
+            </div>
+        </td>
+    `;
     
-    const mappedFlags = alert.indicators.map(f => flagLabelsMap[f] || f);
-    document.getElementById('rep-threat-flags').textContent = mappedFlags.join(' | ');
-
-    // 5. Transaction Specifics
-    const txSection = document.getElementById('rep-tx-applicable-section');
-    const txNotSection = document.getElementById('rep-tx-not-applicable-section');
-    if (alert.target_type === 'transaction' && alert.transaction_details) {
-        txSection.style.display = 'block';
-        txNotSection.style.display = 'none';
-        document.getElementById('rep-tx-id').textContent = '#' + alert.target_id;
-        document.getElementById('rep-tx-amount').textContent = 'Rp ' + parseFloat(alert.transaction_details.transaction_amount).toLocaleString('id-ID');
-        document.getElementById('rep-tx-items').textContent = alert.transaction_details.num_items + ' items';
-        document.getElementById('rep-tx-balance').textContent = 'Rp ' + parseFloat(alert.transaction_details.Subsidy_balance).toLocaleString('id-ID');
-    } else {
-        txSection.style.display = 'none';
-        txNotSection.style.display = 'block';
-    }
-
-    // 6. Audit Notes & Resolution
-    document.getElementById('rep-audit-recommended').textContent = alert.recommended_action;
-    
-    const notesHistory = alert.auditHistory || [];
-    const latestNoteLog = notesHistory.find(l => l.note && l.note.trim() !== '');
-    document.getElementById('rep-audit-notes').textContent = latestNoteLog ? latestNoteLog.note : 'No audit notes appended yet.';
-
-    // 7. Case History Timeline
-    const timelineTbody = document.getElementById('rep-timeline-tbody');
-    timelineTbody.innerHTML = '';
-    
-    if (notesHistory.length === 0) {
-        timelineTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No audit timeline history recorded.</td></tr>`;
-    } else {
-        const sortedHistory = [...notesHistory].reverse();
-        sortedHistory.forEach(log => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td style="white-space:nowrap; font-size:11px; color:#555;">${new Date(log.timestamp).toLocaleString('id-ID')}</td>
-                <td><strong>${log.operator}</strong></td>
-                <td><span class="status-badge status-${log.action === 'resolved' ? 'approved' : log.action === 'triggered' ? 'pending' : 'review'}" style="font-size:10px; padding:1px 5px;">${log.action.toUpperCase()}</span></td>
-                <td style="font-size:11.5px; color:#333;">${log.note || ''}</td>
-            `;
-            timelineTbody.appendChild(tr);
-        });
-    }
-
-    // Footer timestamp
-    document.getElementById('rep-footer-print-time').textContent = new Date().toLocaleString('id-ID');
+    // Insert details row after main row
+    tr.parentNode.insertBefore(detailsTr, tr.nextSibling);
 }
 
 function findTriggeredCombination(alert) {
@@ -2143,87 +2139,200 @@ function findTriggeredCombination(alert) {
     return null;
 }
 
-function exportAlertToPDF() {
-    if (!activeDocAlert) return;
+function selectAuditDocAlertInTable(alertId) {
+    const alt = allAlerts.find(a => a.id === alertId);
+    if (!alt) return;
+    
+    // Clear filters to show target alert
+    const searchInput = document.getElementById('audit-doc-search-input');
+    if (searchInput) searchInput.value = alt.alert_id;
+    
+    const filterSev = document.getElementById('filter-doc-severity');
+    if (filterSev) filterSev.value = 'ALL';
+    
+    const filterStat = document.getElementById('filter-doc-status');
+    if (filterStat) filterStat.value = 'ALL';
+    
+    const filterRule = document.getElementById('filter-doc-rule-id');
+    if (filterRule) filterRule.value = 'ALL';
+    
+    const filterDate = document.getElementById('filter-doc-date');
+    if (filterDate) filterDate.value = '';
+    
+    handleAuditDocFilter();
+    
+    setTimeout(() => {
+        const tr = document.getElementById(`alert-row-${alt.id}`);
+        if (tr) {
+            tr.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            toggleAlertRowDetails(alt.id, tr);
+        }
+    }, 150);
+}
+
+function exportDocAlertsToPDF() {
+    if (filteredAlertsForDoc.length === 0) {
+        alert("No alerts to export.");
+        return;
+    }
+    
+    const tbody = document.getElementById('print-doc-tbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    
+    document.getElementById('print-doc-timestamp').textContent = new Date().toLocaleString('id-ID');
+    
+    filteredAlertsForDoc.forEach(alt => {
+        const details = getAlertExtraDetails(alt);
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td style="font-family: monospace;">${alt.alert_id}</td>
+            <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
+            <td style="font-family: monospace;">${details.txId}</td>
+            <td>#${alt.customer_id} ${alt.customer_name}</td>
+            <td>${alt.risk_score}%</td>
+            <td>${alt.severity_level}</td>
+            <td style="font-family: monospace;">${details.combo ? details.combo.id : 'N/A'}</td>
+            <td>${details.combo ? details.combo.name : (alt.target_type === 'member' ? 'Member Registry Anomaly' : 'Individual Indicators Only')}</td>
+            <td>${alt.indicators.join(' | ')}</td>
+            <td>${details.amount}</td>
+            <td>${alt.status}</td>
+            <td style="text-transform: uppercase;">${details.actionTaken}</td>
+            <td>${details.notes}</td>
+        `;
+        tbody.appendChild(tr);
+    });
+    
     window.print();
 }
 
-function exportAlertToDOCX() {
-    if (!activeDocAlert) return;
-    const reportHtml = document.getElementById('printable-report-sheet').innerHTML;
+function exportDocAlertsToDOCX() {
+    if (filteredAlertsForDoc.length === 0) {
+        alert("No alerts to export.");
+        return;
+    }
+    
+    let tableRowsHTML = '';
+    filteredAlertsForDoc.forEach(alt => {
+        const details = getAlertExtraDetails(alt);
+        tableRowsHTML += `
+            <tr>
+                <td style="font-family: monospace;">${alt.alert_id}</td>
+                <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
+                <td style="font-family: monospace;">${details.txId}</td>
+                <td>#${alt.customer_id} ${alt.customer_name}</td>
+                <td>${alt.risk_score}%</td>
+                <td>${alt.severity_level}</td>
+                <td style="font-family: monospace;">${details.combo ? details.combo.id : 'N/A'}</td>
+                <td>${details.combo ? details.combo.name : (alt.target_type === 'member' ? 'Member Registry Anomaly' : 'Individual Indicators Only')}</td>
+                <td>${alt.indicators.join(' | ')}</td>
+                <td>${details.amount}</td>
+                <td>${alt.status}</td>
+                <td style="text-transform: uppercase;">${details.actionTaken}</td>
+                <td>${details.notes}</td>
+            </tr>
+        `;
+    });
     
     const docHtml = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
         <head>
-            <title>Kova Mart Security Audit Report - ${activeDocAlert.alert_id}</title>
+            <title>Kova Mart Alerts Audit Document</title>
             <style>
-                body { font-family: Arial, sans-serif; line-height: 1.6; font-size: 11pt; color: #1a1a1a; padding: 20px; }
-                h1, h2, h3 { color: #111111; margin-top: 15px; margin-bottom: 5px; }
-                .report-header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 15px; margin-bottom: 20px; }
-                .report-divider { border-top: 2px solid #111; margin: 15px 0; }
-                .report-section-title { font-weight: bold; background: #e0e0e0; padding: 5px 10px; margin: 15px 0 10px 0; border-left: 5px solid #ff1744; font-size: 12pt; }
-                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-                td, th { padding: 8px; border: 1px solid #d0d0d0; font-size: 10pt; text-align: left; vertical-align: top; }
+                body { font-family: Arial, sans-serif; font-size: 10pt; color: #1a1a1a; padding: 20px; }
+                h2 { color: #111111; border-bottom: 2px solid #ff1744; padding-bottom: 8px; }
+                table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                th, td { border: 1px solid #d0d0d0; padding: 6px; text-align: left; vertical-align: top; font-size: 9pt; }
                 th { background-color: #f2f2f2; font-weight: bold; }
-                .status-badge { font-weight: bold; padding: 2px 5px; border-radius: 3px; background-color: #f0f0f0; }
             </style>
         </head>
         <body>
-            ${reportHtml}
+            <h2>Kova Mart - Alerts Audit Document</h2>
+            <p>Generated: ${new Date().toLocaleString('id-ID')}</p>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Alert ID</th>
+                        <th>Date/Time</th>
+                        <th>Transaction ID</th>
+                        <th>Customer ID/Name</th>
+                        <th>Risk Score</th>
+                        <th>Risk Level</th>
+                        <th>Rule ID</th>
+                        <th>Rule Name</th>
+                        <th>Triggered Indicators</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Action Taken</th>
+                        <th>Audit Notes</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    ${tableRowsHTML}
+                </tbody>
+            </table>
         </body>
         </html>
     `;
     
-    const blob = new Blob(['\\ufeff' + docHtml], { type: 'application/msword' });
+    const blob = new Blob(['\ufeff' + docHtml], { type: 'application/msword' });
     const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `Alert_Audit_Report_${activeDocAlert.alert_id}.doc`;
-    a.click();
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `KovaMart_Alerts_Audit_Report_${Date.now()}.doc`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
 }
 
-function exportAlertToCSV() {
-    if (!activeDocAlert) return;
-    const member = allMembers.find(m => m.id === activeDocAlert.customer_id) || {};
-    const combo = findTriggeredCombination(activeDocAlert) || {};
-    const deviceData = member.device_info ? parseDeviceSignature(member.device_info) : { device: "N/A", os: "N/A", browser: "N/A" };
+function exportDocAlertsToCSV() {
+    if (filteredAlertsForDoc.length === 0) {
+        alert("No alerts to export.");
+        return;
+    }
     
-    const data = [
-        ["Field", "Value"],
-        ["Alert Case ID", activeDocAlert.alert_id],
-        ["Target Type", activeDocAlert.target_type],
-        ["Target ID", activeDocAlert.target_id],
-        ["Case Status", activeDocAlert.status],
-        ["Risk Level", activeDocAlert.severity_level],
-        ["Composite Risk Score", activeDocAlert.risk_score + "%"],
-        ["Detection Time", activeDocAlert.detection_timestamp],
-        ["Customer Name", activeDocAlert.customer_name],
-        ["Customer ID", activeDocAlert.customer_id],
-        ["National ID (NIK)", member.nik || "N/A"],
-        ["KKS Card Number", member.kks_card || "N/A"],
-        ["Phone Number", member.phone || "N/A"],
-        ["Address", member.address || "N/A"],
-        ["Device Model", deviceData.device],
-        ["Device OS", deviceData.os],
-        ["Device Browser", deviceData.browser],
-        ["IP Address", member.ip_address || "N/A"],
-        ["Triggered Combination ID", combo.id || "N/A"],
-        ["Triggered Combination Name", combo.name || "N/A"],
-        ["Individual Triggered Flags", activeDocAlert.indicators.join(" | ")],
-        ["Recommended Action", activeDocAlert.recommended_action],
-        ["Auditor Notes", activeDocAlert.auditHistory && activeDocAlert.auditHistory.length > 0 ? activeDocAlert.auditHistory[0].note : "No notes"]
+    const headers = [
+        "Alert ID", "Date/Time", "Transaction ID", "Customer ID/Name", 
+        "Risk Score", "Risk Level", "Triggered Combo Rule ID", 
+        "Triggered Combo Rule Name", "Triggered Indicators", 
+        "Transaction Amount", "Status", "Action Taken", "Audit Notes"
     ];
     
-    let csvContent = "data:text/csv;charset=utf-8,";
-    data.forEach(row => {
-        const rowString = row.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(",");
-        csvContent += rowString + "\r\n";
+    const csvRows = [headers.join(",")];
+    
+    filteredAlertsForDoc.forEach(alt => {
+        const details = getAlertExtraDetails(alt);
+        const row = [
+            alt.alert_id,
+            new Date(alt.detection_timestamp).toLocaleString('id-ID'),
+            details.txId,
+            `#${alt.customer_id} ${alt.customer_name}`,
+            alt.risk_score + "%",
+            alt.severity_level,
+            details.combo ? details.combo.id : "N/A",
+            details.combo ? details.combo.name : (alt.target_type === 'member' ? "Member Registry Anomaly" : "Individual Indicators Only"),
+            alt.indicators.join(" | "),
+            details.amount,
+            alt.status,
+            details.actionTaken,
+            details.notes
+        ];
+        
+        const escapedRow = row.map(val => {
+            const str = val === null || val === undefined ? "" : val.toString();
+            return `"${str.replace(/"/g, '""')}"`;
+        });
+        csvRows.push(escapedRow.join(","));
     });
     
-    const encodedUri = encodeURI(csvContent);
-    const a = document.createElement('a');
-    a.href = encodedUri;
-    a.download = `Alert_Audit_Report_${activeDocAlert.alert_id}.csv`;
-    a.click();
+    const blob = new Blob(['\ufeff' + csvRows.join("\r\n")], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `KovaMart_Alerts_Audit_Report_${Date.now()}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
 }

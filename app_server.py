@@ -487,7 +487,7 @@ def handle_members():
                     cursor.execute("""
                         INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
                         VALUES ('member', ?, ?, 0.0, ?, ?, ?, ?, '[]')
-                    """, (ex_id, max_score, max_score, severity.upper(), f"FRAUD DETECTED ON REGISTRATION - {', '.join(dup_indicators)}", json.dumps(dup_indicators)))
+                    """, (ex_id, max_score, max_score, severity.upper(), f"RULE-FLAGGED ON REGISTRATION - {', '.join(dup_indicators)}", json.dumps(dup_indicators)))
                     
                     cursor.execute("""
                         INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
@@ -549,7 +549,7 @@ def handle_members():
                 cursor.execute("""
                     INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
                     VALUES ('member', ?, ?, 0.0, ?, ?, ?, ?, '[]')
-                """, (member_id, max_score, max_score, severity.upper(), f"FRAUD DETECTED ON REGISTRATION - {', '.join(indicators)}", json.dumps(indicators)))
+                """, (member_id, max_score, max_score, severity.upper(), f"RULE-FLAGGED ON REGISTRATION - {', '.join(indicators)}", json.dumps(indicators)))
                 
                 # Log alert generation
                 cursor.execute("""

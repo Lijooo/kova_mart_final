@@ -190,7 +190,7 @@ function updateOverviewStats() {
     document.getElementById('stats-total-tx').textContent = m.total_transactions.toLocaleString();
     document.getElementById('stats-avg-risk').textContent = m.average_risk_score.toFixed(1) + '%';
     document.getElementById('stats-fraud-rate').textContent = m.fraud_rate_pct.toFixed(2);
-    document.getElementById('stats-fraud-detected').textContent = m.fraud_detected.toLocaleString();
+    document.getElementById('stats-fraud-detected').textContent = `${m.fraud_detected.toLocaleString()} rule-flagged (not verified fraud)`;
     
     document.getElementById('stats-total-members').textContent = m.total_members.toLocaleString();
     document.getElementById('stats-active-members').textContent = m.active_members.toLocaleString();
@@ -326,7 +326,7 @@ function renderAlertsTable() {
     tbody.innerHTML = '';
     
     if (filteredAlerts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching fraud alerts found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching security alerts found</td></tr>`;
         return;
     }
     
@@ -636,7 +636,7 @@ function exportFilteredToCSV() {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
     link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `kovamart_fraud_operations_export_${Date.now()}.csv`);
+    link.setAttribute("download", `kovamart_security_operations_export_${Date.now()}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -1552,7 +1552,7 @@ function renderAllCharts() {
         data: {
             labels: hoursLabels,
             datasets: [{
-                label: 'Fraud Prevalence Rate (%)',
+                label: 'Rule-Based Flag Rate (%)',
                 data: hourlyFraudRate,
                 fill: true,
                 backgroundColor: 'rgba(59, 130, 246, 0.08)',

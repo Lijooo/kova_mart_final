@@ -385,16 +385,16 @@ def score_transaction(t):
         highest = triggered_combos[0]
         if highest["tier"] == "CRITICAL" or final_pct >= 80:
             level   = "🔴 CRITICAL"
-            verdict = f"🚨 FRAUD DETECTED — {highest['name']}"
+            verdict = f"🚨 RULE-FLAGGED — {highest['name']}"
         elif highest["tier"] == "HIGH" or final_pct >= 55:
             level   = "🟠 HIGH"
-            verdict = f"🚨 FRAUD DETECTED — {highest['name']}"
+            verdict = f"🚨 RULE-FLAGGED — {highest['name']}"
         else:
             level   = "🟡 MEDIUM"
             verdict = f"⚠️  POSSIBLE FRAUD — {highest['name']}"
     elif n_flags >= 4:
         level   = "🟠 HIGH"
-        verdict = "🚨 FRAUD DETECTED — Multiple suspicious indicators"
+        verdict = "🚨 RULE-FLAGGED — Multiple suspicious indicators"
     elif n_flags == 3:
         level   = "🟡 MEDIUM"
         verdict = "⚠️  POSSIBLE FRAUD — Multiple indicators present"

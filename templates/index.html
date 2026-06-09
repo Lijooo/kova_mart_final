@@ -144,12 +144,15 @@
                     
                     <div class="glass-panel stat-card">
                         <div class="stat-header">
-                            <span>FRAUD RATE PREVALENCE</span>
+                            <span style="display: flex; align-items: center; gap: 4px;">
+                                RULE-BASED FLAG RATE
+                                <i data-lucide="help-circle" style="width: 12px; height: 12px; cursor: help;" title="This rate shows transactions flagged by rules/model scoring. It is not verified fraud until reviewed by an auditor."></i>
+                            </span>
                             <i data-lucide="alert-triangle" style="color: var(--color-critical);"></i>
                         </div>
                         <div class="stat-value"><span id="stats-fraud-rate">-</span>%</div>
-                        <div class="stat-subtext">
-                            <span id="stats-fraud-detected">-</span> flagged transactions
+                        <div class="stat-subtext" id="stats-fraud-detected">
+                            -
                         </div>
                     </div>
                     
@@ -179,7 +182,7 @@
                             <i data-lucide="user-x" style="color: var(--color-high);"></i>
                         </div>
                         <div class="stat-value" id="stats-flagged-members">-</div>
-                        <div class="stat-subtext">Under fraud investigation</div>
+                        <div class="stat-subtext">Under active investigation</div>
                     </div>
 
                     <div class="glass-panel stat-card">
@@ -206,7 +209,7 @@
                     
                     <div class="glass-panel chart-card">
                         <div class="chart-title">
-                            <span>Fraud Rate Trend by Hour</span>
+                            <span>Rule-Flag Rate Trend by Hour</span>
                             <i data-lucide="trending-up"></i>
                         </div>
                         <div class="chart-container">
@@ -273,7 +276,7 @@
                     <!-- Recent Fraud Alerts -->
                     <div class="glass-panel chart-card" style="min-height: auto;">
                         <div class="chart-title">
-                            <span>Recent Security Fraud Alerts</span>
+                            <span>Recent Security Alerts (Rule-Flagged)</span>
                             <i data-lucide="shield-alert" style="color: var(--color-critical);"></i>
                         </div>
                         <div class="table-wrapper">

@@ -37,7 +37,16 @@ except Exception as e:
     traceback.print_exc()
     sys.exit(1)
 
-from flask import Flask, jsonify, request, render_template
+from flask import Flask, jsonify, request, render_template, session
+from functools import wraps
+
+def require_auth(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        if not session.get('logged_in'):
+            return jsonify({"status": "error", "message": "Unauthorized"}), 401
+        return f(*args, **kwargs)
+    return decorated
 
 def clean_numpy(val):
     if isinstance(val, (np.integer, np.int64, np.int32)):
@@ -50,6 +59,28 @@ def clean_numpy(val):
         return [clean_numpy(v) for v in val]
     return val
 
+def mask_sensitive_data(member):
+    member_copy = dict(member)
+    if "nik" in member_copy and member_copy["nik"]:
+        nik = str(member_copy["nik"])
+        if len(nik) >= 8:
+            member_copy["nik"] = f"{nik[:4]}******{nik[-4:]}"
+        else:
+            member_copy["nik"] = "******"
+    if "kks_card" in member_copy and member_copy["kks_card"]:
+        kks = str(member_copy["kks_card"])
+        if len(kks) >= 8:
+            member_copy["kks_card"] = f"{kks[:4]}******{kks[-4:]}"
+        else:
+            member_copy["kks_card"] = "******"
+    if "phone" in member_copy and member_copy["phone"]:
+        phone = str(member_copy["phone"])
+        if len(phone) >= 6:
+            member_copy["phone"] = f"{phone[:3]}******{phone[-3:]}"
+        else:
+            member_copy["phone"] = "******"
+    return member_copy
+
 # 2. Create Flask App
 # Use templates/ and static/ in current directory
 app = Flask(
@@ -57,6 +88,7 @@ app = Flask(
     template_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'templates'),
     static_folder=os.path.join(os.path.dirname(os.path.abspath(__file__)), 'static')
 )
+app.secret_key = 'kova-secure-session-secret-key-9988'
 
 # CORS helper
 @app.after_request
@@ -71,8 +103,42 @@ def add_cors(response):
 def home():
     return render_template('index.html')
 
+# ─── API: AUTHENTICATION ──────────────────────────────────────────────────────
+@app.route('/api/login', methods=['POST'])
+def login():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "Missing credentials"}), 400
+        
+        username = data.get("username", "").strip()
+        password = data.get("password", "").strip()
+        
+        # Default secure credentials
+        if username == "admin" and password == "kova-secure-admin":
+            session['logged_in'] = True
+            session['user'] = "Admin Auditor"
+            return jsonify({"status": "success", "user": "Admin Auditor"})
+        else:
+            return jsonify({"status": "error", "message": "Invalid username or password"}), 401
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route('/api/logout', methods=['POST', 'GET'])
+def logout():
+    session.pop('logged_in', None)
+    session.pop('user', None)
+    return jsonify({"status": "success", "message": "Logged out successfully"})
+
+@app.route('/api/auth/status', methods=['GET'])
+def auth_status():
+    if session.get('logged_in'):
+        return jsonify({"status": "success", "authenticated": True, "user": session.get('user')})
+    return jsonify({"status": "success", "authenticated": False})
+
 # ─── API: DASHBOARD STATISTICS ───────────────────────────────────────────────
 @app.route('/api/stats', methods=['GET'])
+@require_auth
 def get_stats():
     try:
         conn = database.get_db_connection()
@@ -156,14 +222,14 @@ def get_stats():
         recent_m_rows = cursor.fetchall()
         recent_members = []
         for rm in recent_m_rows:
-            recent_members.append({
+            recent_members.append(mask_sensitive_data({
                 "id": rm["id"],
                 "name": rm["name"],
                 "nik": rm["nik"],
                 "phone": rm["phone"],
                 "verification_status": rm["verification_status"],
                 "registration_date": rm["registration_date"]
-            })
+            }))
 
         # 7. Recent fraud alerts
         cursor.execute("SELECT * FROM alerts ORDER BY id DESC LIMIT 5")
@@ -215,6 +281,7 @@ def get_stats():
 
 # ─── API: RECENT SUSPICIOUS ALERTS ───────────────────────────────────────────
 @app.route('/api/suspicious', methods=['GET'])
+@require_auth
 def get_suspicious():
     try:
         conn = database.get_db_connection()
@@ -253,6 +320,7 @@ def get_suspicious():
 
 # ─── API: ALL TRANSACTIONS (FOR OPERATIONS CONSOLE) ───────────────────────────
 @app.route('/api/transactions', methods=['GET'])
+@require_auth
 def get_transactions():
     try:
         conn = database.get_db_connection()
@@ -297,8 +365,50 @@ def get_transactions():
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
 
+# ─── API: REVEAL MEMBER SENSITIVE DATA ────────────────────────────────────────
+@app.route('/api/members/<int:member_id>/reveal', methods=['POST'])
+@require_auth
+def reveal_member_data(member_id):
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute("SELECT * FROM members WHERE id = ?", (member_id,))
+        row = cursor.fetchone()
+        
+        if not row:
+            conn.close()
+            return jsonify({"status": "error", "message": "Member not found"}), 404
+            
+        member = dict(row)
+        operator = session.get('user', 'Auditor')
+        timestamp = datetime.now().isoformat()
+        
+        # Log reveal to audit_logs
+        cursor.execute("""
+            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+            VALUES ('member', ?, 'reveal', ?, ?, ?)
+        """, (member_id, f"Auditor revealed sensitive NIK/KKS card details for Member '{member['name']}'.", operator, timestamp))
+        
+        conn.commit()
+        conn.close()
+        
+        # Sync to markdown documents
+        database.sync_all_documentation()
+        
+        return jsonify({
+            "status": "success",
+            "nik": member["nik"],
+            "kks_card": member["kks_card"],
+            "phone": member["phone"]
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
 # ─── API: MEMBER REGISTRATION & MANAGEMENT ───────────────────────────────────
 @app.route('/api/members', methods=['GET', 'POST'])
+@require_auth
 def handle_members():
     if request.method == 'GET':
         try:
@@ -320,7 +430,7 @@ def handle_members():
                         "timestamp": log["timestamp"]
                     })
                 m["auditHistory"] = audit_history
-                members.append(m)
+                members.append(mask_sensitive_data(m))
             conn.close()
             return jsonify({"status": "success", "members": members})
         except Exception as e:
@@ -515,6 +625,7 @@ def handle_members():
 
 # ─── API: ALERTS LIST & RESOLUTION ───────────────────────────────────────────
 @app.route('/api/alerts', methods=['GET'])
+@require_auth
 def get_alerts():
     try:
         conn = database.get_db_connection()
@@ -549,6 +660,7 @@ def get_alerts():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 @app.route('/api/alerts/<int:alert_db_id>/status', methods=['POST'])
+@require_auth
 def resolve_alert(alert_db_id):
     try:
         data = request.json
@@ -616,6 +728,7 @@ def resolve_alert(alert_db_id):
 
 # ─── API: TRANSACTION MANUAL AUDITING ─────────────────────────────────────────
 @app.route('/api/transactions/audit', methods=['POST'])
+@require_auth
 def audit_transaction():
     try:
         data = request.json

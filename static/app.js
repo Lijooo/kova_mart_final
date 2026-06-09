@@ -189,7 +189,7 @@ function updateDashboardRecentActivity(statsJson) {
         statsJson.recent_registrations.forEach(rm => {
             const tr = document.createElement('tr');
             let badgeClass = 'status-approved';
-            if (rm.verification_status === 'Flagged') badgeClass = 'status-blocked';
+            if (rm.verification_status === 'Flagged' || rm.verification_status === 'Blocked') badgeClass = 'status-blocked';
             else if (rm.verification_status === 'Under Review') badgeClass = 'status-review';
             
             tr.innerHTML = `
@@ -211,9 +211,10 @@ function updateDashboardRecentActivity(statsJson) {
             const tr = document.createElement('tr');
             
             let badgeClass = 'badge-low';
-            if (ra.severity_level === 'Critical') badgeClass = 'badge-critical';
-            else if (ra.severity_level === 'High') badgeClass = 'badge-high';
-            else if (ra.severity_level === 'Medium') badgeClass = 'badge-medium';
+            const sev = (ra.severity_level || '').toUpperCase();
+            if (sev === 'CRITICAL') badgeClass = 'badge-critical';
+            else if (sev === 'HIGH') badgeClass = 'badge-high';
+            else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
             
             let statusBadge = `status-pending`;
             if (ra.status === 'Resolved') statusBadge = 'status-approved';
@@ -290,7 +291,7 @@ function handleAlertsFilter() {
                             alt.customer_name.toLowerCase().includes(searchVal) ||
                             alt.customer_id.toString().includes(searchVal);
                             
-        const matchSeverity = (severityFilter === 'ALL' || alt.severity_level === severityFilter);
+        const matchSeverity = (severityFilter === 'ALL' || (alt.severity_level || '').toUpperCase() === severityFilter.toUpperCase());
         const matchStatus = (statusFilter === 'ALL' || alt.status === statusFilter);
         
         return matchSearch && matchSeverity && matchStatus;
@@ -314,9 +315,10 @@ function renderAlertsTable() {
         tr.onclick = () => openAuditorPanel(alt, 'alert');
         
         let badgeClass = 'badge-low';
-        if (alt.severity_level === 'Critical') badgeClass = 'badge-critical';
-        else if (alt.severity_level === 'High') badgeClass = 'badge-high';
-        else if (alt.severity_level === 'Medium') badgeClass = 'badge-medium';
+        const sev = (alt.severity_level || '').toUpperCase();
+        if (sev === 'CRITICAL') badgeClass = 'badge-critical';
+        else if (sev === 'HIGH') badgeClass = 'badge-high';
+        else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
         
         let statusBadge = `status-pending`;
         if (alt.status === 'Resolved') statusBadge = 'status-approved';
@@ -371,7 +373,7 @@ function renderMembersTable() {
         tr.onclick = () => openAuditorPanel(mem, 'member');
 
         let statusClass = 'status-approved';
-        if (mem.verification_status === 'Flagged') statusClass = 'status-blocked';
+        if (mem.verification_status === 'Flagged' || mem.verification_status === 'Blocked') statusClass = 'status-blocked';
         else if (mem.verification_status === 'Under Review') statusClass = 'status-review';
         
         const dateFormatted = new Date(mem.registration_date).toLocaleString('id-ID');
@@ -710,6 +712,12 @@ function openAuditorPanel(target, type) {
             </div>
         `;
 
+        let alertColor = 'var(--color-low)';
+        const sev = (target.severity_level || '').toUpperCase();
+        if (sev === 'CRITICAL') alertColor = 'var(--color-critical)';
+        else if (sev === 'HIGH') alertColor = 'var(--color-high)';
+        else if (sev === 'MEDIUM') alertColor = 'var(--color-medium)';
+
         idGridEl.innerHTML = `
             <div>
                 <div class="detail-item-label">Alert Case ID</div>
@@ -717,7 +725,7 @@ function openAuditorPanel(target, type) {
             </div>
             <div>
                 <div class="detail-item-label">Incident Threat Score</div>
-                <div class="detail-item-val" style="color:var(--color-critical); font-weight:700;">${target.risk_score}% (${target.severity_level})</div>
+                <div class="detail-item-val" style="color:${alertColor}; font-weight:700;">${target.risk_score}% (${target.severity_level})</div>
             </div>
             <div>
                 <div class="detail-item-label">Target Type</div>
@@ -1704,9 +1712,10 @@ async function populateBellDropdown() {
         };
         
         let color = 'var(--color-low)';
-        if (alt.severity_level === 'Critical') color = 'var(--color-critical)';
-        else if (alt.severity_level === 'High') color = 'var(--color-high)';
-        else if (alt.severity_level === 'Medium') color = 'var(--color-medium)';
+        const sev = (alt.severity_level || '').toUpperCase();
+        if (sev === 'CRITICAL') color = 'var(--color-critical)';
+        else if (sev === 'HIGH') color = 'var(--color-high)';
+        else if (sev === 'MEDIUM') color = 'var(--color-medium)';
         
         item.innerHTML = `
             <div class="dropdown-item-header">

@@ -41,6 +41,15 @@ let chartRiskFactors = null;
 let activeAuditTarget = null;
 let activeAuditType = null;
 
+function toggleSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar && overlay) {
+        sidebar.classList.toggle('active');
+        overlay.classList.toggle('active');
+    }
+}
+
 // Initial Load
 document.addEventListener("DOMContentLoaded", () => {
     // Initialize Icons
@@ -49,6 +58,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load Auto-Block State from LocalStorage (kept for user preference)
     autoBlockEnabled = localStorage.getItem('kovamart_autoblock') === 'true';
     document.getElementById('auto-block-checkbox').checked = autoBlockEnabled;
+    const sidebarCheckbox = document.getElementById('sidebar-auto-block-checkbox');
+    if (sidebarCheckbox) {
+        sidebarCheckbox.checked = autoBlockEnabled;
+    }
    
     // Fetch dashboard data immediately
     loadAllData();
@@ -59,6 +72,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
 // View Routing switcher
 function switchView(viewName) {
+    // Close sidebar on mobile/tablet after navigating
+    const sidebar = document.getElementById('app-sidebar');
+    const overlay = document.getElementById('sidebar-overlay');
+    if (sidebar && sidebar.classList.contains('active')) {
+        sidebar.classList.remove('active');
+        overlay.classList.remove('active');
+    }
+
     // Hide all view containers
     document.querySelectorAll('.view-container').forEach(el => {
         el.classList.remove('active');
@@ -972,6 +993,24 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
 function toggleAutoBlock() {
     autoBlockEnabled = document.getElementById('auto-block-checkbox').checked;
     localStorage.setItem('kovamart_autoblock', autoBlockEnabled);
+    
+    const sidebarCheckbox = document.getElementById('sidebar-auto-block-checkbox');
+    if (sidebarCheckbox) {
+        sidebarCheckbox.checked = autoBlockEnabled;
+    }
+    
+    showToast("Auto-Block Settings Saved", `Auto-block is now ${autoBlockEnabled ? 'ENABLED' : 'DISABLED'}.`, "success");
+}
+
+function toggleAutoBlockSidebar() {
+    autoBlockEnabled = document.getElementById('sidebar-auto-block-checkbox').checked;
+    localStorage.setItem('kovamart_autoblock', autoBlockEnabled);
+    
+    const topBarCheckbox = document.getElementById('auto-block-checkbox');
+    if (topBarCheckbox) {
+        topBarCheckbox.checked = autoBlockEnabled;
+    }
+    
     showToast("Auto-Block Settings Saved", `Auto-block is now ${autoBlockEnabled ? 'ENABLED' : 'DISABLED'}.`, "success");
 }
 

@@ -17,7 +17,7 @@
     <div class="app-container">
         
         <!-- SIDEBAR NAVIGATION -->
-        <aside class="sidebar">
+        <aside class="sidebar" id="app-sidebar">
             <div class="sidebar-brand">
                 <div class="sidebar-logo-icon">🛡️</div>
                 <div class="sidebar-brand-name">Kova Mart</div>
@@ -75,15 +75,30 @@
                     <span class="health-dot"></span>
                     <span>AI Model Active</span>
                 </div>
+                <div class="sidebar-auto-block" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
+                    <span style="font-size: 12px; color: var(--text-secondary);">Auto-Block High Risk</span>
+                    <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
+                        <input type="checkbox" id="sidebar-auto-block-checkbox" onchange="toggleAutoBlockSidebar()">
+                        <span class="slider-toggle"></span>
+                    </label>
+                </div>
             </div>
         </aside>
+        
+        <!-- Mobile Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
 
         <!-- MAIN LAYOUT -->
         <main class="main-content">
             
             <!-- TOP BAR -->
             <header class="top-bar">
-                <div class="bar-title" id="view-title">Dashboard Overview</div>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                    <button class="mobile-menu-toggle" onclick="toggleSidebar()" style="display: none; background: transparent; border: none; color: var(--text-primary); cursor: pointer; padding: 4px; border-radius: 4px; transition: background 0.2s; align-items: center; justify-content: center;">
+                        <i data-lucide="menu" style="width: 24px; height: 24px;"></i>
+                    </button>
+                    <div class="bar-title" id="view-title">Dashboard Overview</div>
+                </div>
                 
                 <div class="top-bar-actions">
                     <div class="auto-block-toggle">
@@ -254,7 +269,7 @@
                 </div>
 
                 <!-- Dashboard Recent Activities Row -->
-                <div class="charts-grid" style="grid-template-columns: 1.2fr 0.8fr;">
+                <div class="charts-grid dashboard-activity-grid">
                     <!-- Recent Fraud Alerts -->
                     <div class="glass-panel chart-card" style="min-height: auto;">
                         <div class="chart-title">

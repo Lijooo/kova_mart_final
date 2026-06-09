@@ -63,18 +63,10 @@
                     </li>
                 </ul>
             </nav>
-            
             <div class="sidebar-footer">
                 <div class="sys-health">
                     <span class="health-dot"></span>
                     <span>AI Model Active</span>
-                </div>
-                <div class="sidebar-auto-block" style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between;">
-                    <span style="font-size: 12px; color: var(--text-secondary);">Auto-Block High Risk</span>
-                    <label class="switch" style="transform: scale(0.8); transform-origin: right center;">
-                        <input type="checkbox" id="sidebar-auto-block-checkbox" onchange="toggleAutoBlockSidebar()">
-                        <span class="slider-toggle"></span>
-                    </label>
                 </div>
             </div>
         </aside>
@@ -140,7 +132,6 @@
                         <div class="stat-header">
                             <span style="display: flex; align-items: center; gap: 4px;">
                                 RULE-BASED FLAG RATE
-                                <i data-lucide="help-circle" style="width: 12px; height: 12px; cursor: help;" title="This rate shows transactions flagged by rules/model scoring. It is not verified fraud until reviewed by an auditor."></i>
                             </span>
                             <i data-lucide="alert-triangle" style="color: var(--color-critical);"></i>
                         </div>

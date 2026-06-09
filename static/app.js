@@ -212,10 +212,6 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load Auto-Block State from LocalStorage (kept for user preference)
     autoBlockEnabled = localStorage.getItem('kovamart_autoblock') === 'true';
     document.getElementById('auto-block-checkbox').checked = autoBlockEnabled;
-    const sidebarCheckbox = document.getElementById('sidebar-auto-block-checkbox');
-    if (sidebarCheckbox) {
-        sidebarCheckbox.checked = autoBlockEnabled;
-    }
    
     // Fetch dashboard data immediately
     loadAllData();
@@ -1112,24 +1108,6 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
 function toggleAutoBlock() {
     autoBlockEnabled = document.getElementById('auto-block-checkbox').checked;
     localStorage.setItem('kovamart_autoblock', autoBlockEnabled);
-    
-    const sidebarCheckbox = document.getElementById('sidebar-auto-block-checkbox');
-    if (sidebarCheckbox) {
-        sidebarCheckbox.checked = autoBlockEnabled;
-    }
-    
-    showToast("Auto-Block Settings Saved", `Auto-block is now ${autoBlockEnabled ? 'ENABLED' : 'DISABLED'}.`, "success");
-}
-
-function toggleAutoBlockSidebar() {
-    autoBlockEnabled = document.getElementById('sidebar-auto-block-checkbox').checked;
-    localStorage.setItem('kovamart_autoblock', autoBlockEnabled);
-    
-    const topBarCheckbox = document.getElementById('auto-block-checkbox');
-    if (topBarCheckbox) {
-        topBarCheckbox.checked = autoBlockEnabled;
-    }
-    
     showToast("Auto-Block Settings Saved", `Auto-block is now ${autoBlockEnabled ? 'ENABLED' : 'DISABLED'}.`, "success");
 }
 

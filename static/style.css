@@ -1697,4 +1697,9 @@ input:checked + .slider-toggle:before {
     }
 }
 
-
+/* Global Dark Dropdowns override */
+select, select option {
+    color-scheme: dark !important;
+    background-color: #121824 !important;
+    color: #ffffff !important;
+}

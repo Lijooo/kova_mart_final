@@ -161,7 +161,7 @@ def get_stats():
             "flag_same_device":       "Same Device Multiple Accounts",
             "flag_location_changed":  "Login Location Changed",
             "flag_same_product_high": "Same Product Count >5/month",
-            "flag_payment_retry":     "Payment Retries >= 3",
+            "flag_payment_retry":     "Payment Retry >= 3",
             "flag_failed_login":      "Failed Login Attempts >= 3",
             "flag_id_not_verified":   "National ID Not Verified",
             "flag_kks_not_valid":     "KKS Card Invalid",

@@ -128,6 +128,14 @@ FRAUD_COMBINATIONS = [
     },
     {
         "combo_id":    "C9",
+        "name":        "Duplicate Account + Payment Retry + Invalid Card",
+        "flags":       ["flag_duplicate_account", "flag_payment_retry", "flag_card_invalid"],
+        "combo_score": 65,
+        "tier":        "HIGH",
+        "reason":      "Fake account attempting repeated payments with invalid card",
+    },
+    {
+        "combo_id":    "C10",
         "name":        "Duplicate Account + Failed Logins",
         "flags":       ["flag_duplicate_account", "flag_failed_login"],
         "combo_score": 60,
@@ -135,7 +143,7 @@ FRAUD_COMBINATIONS = [
         "reason":      "Fake account with repeated failed access attempts",
     },
     {
-        "combo_id":    "C10",
+        "combo_id":    "C11",
         "name":        "Subsidy Exhausted + High Frequency",
         "flags":       ["flag_subsidy_exhausted", "flag_high_frequency"],
         "combo_score": 55,
@@ -144,7 +152,7 @@ FRAUD_COMBINATIONS = [
     },
     # ── TIER: MEDIUM (score 40–50) ────────────────────────────────────────────
     {
-        "combo_id":    "C11",
+        "combo_id":    "C12",
         "name":        "Unverified ID + Invalid KKS + Invalid Card",
         "flags":       ["flag_id_not_verified", "flag_kks_not_valid", "flag_card_invalid"],
         "combo_score": 50,
@@ -152,7 +160,7 @@ FRAUD_COMBINATIONS = [
         "reason":      "All three identity credentials invalid — likely ghost beneficiary",
     },
     {
-        "combo_id":    "C12",
+        "combo_id":    "C13",
         "name":        "Unverified ID + Duplicate Account",
         "flags":       ["flag_id_not_verified", "flag_duplicate_account"],
         "combo_score": 45,
@@ -429,7 +437,7 @@ def display_result(result):
     print(f"     First Transaction    : {'Yes' if t.get('is_first_transaction') == 1 else 'No'}")
     print(f"     Channel              : {'App' if t.get('app(0) vs kiosk(1)transaction') == 0 else 'Kiosk'}")
     print(f"     Failed Logins        : {t.get('failed_login_attempts', 0)}")
-    print(f"     Payment Retries      : {t.get('payment_retry_count', 0)}")
+    print(f"     Payment Retry Count  : {t.get('payment_retry_count', 0)}")
 
     flag_labels = {
         "flag_ip_outsider":       "🔴 Foreign IP Address              (P1)",
@@ -439,7 +447,7 @@ def display_result(result):
         "flag_same_device":       "🟠 Same Device Multiple Accounts   (P5)",
         "flag_location_changed":  "🟠 Login Location Changed          (P6)",
         "flag_same_product_high": "🟡 Same Product Count >5/month     (P7)",
-        "flag_payment_retry":     "🟡 Payment Retries >= 3            (P8)",
+        "flag_payment_retry":     "🟡 Payment Retry >= 3            (P8)",
         "flag_failed_login":      "🟡 Failed Login Attempts >= 3      (P9)",
         "flag_id_not_verified":   "🟡 National ID Not Verified        (P10)",
         "flag_kks_not_valid":     "🟡 KKS Card Invalid                (P11)",
@@ -491,12 +499,13 @@ def display_result(result):
                 ("C6",   75, "High Frequency + Repeated Purchase + Same Product"),
                 ("C7",   70, "Failed Logins + Payment Retry + High Frequency"),
                 ("C8",   65, "Failed Logins + Payment Retry + Invalid Card"),
-                ("C9",   60, "Duplicate Account + Failed Logins"),
-                ("C10",  55, "Subsidy Exhausted + High Frequency"),
+                ("C9",   65, "Duplicate Account + Payment Retry + Invalid Card"),
+                ("C10",  60, "Duplicate Account + Failed Logins"),
+                ("C11",  55, "Subsidy Exhausted + High Frequency"),
             ]),
             ("🟡 MEDIUM  ", [
-                ("C11",  50, "Unverified ID + Invalid KKS + Invalid Card"),
-                ("C12",  45, "Unverified ID + Duplicate Account"),
+                ("C12",  50, "Unverified ID + Invalid KKS + Invalid Card"),
+                ("C13",  45, "Unverified ID + Duplicate Account"),
             ]),
         ]
 

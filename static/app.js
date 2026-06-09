@@ -761,7 +761,7 @@ function exportFilteredToCSV() {
     const csvRows = [];
     const headers = [
         "Customer_ID", "Customer_Name", "Initial_Subsidy", "Transaction_Amount", "Subsidy_Balance",
-        "Hour_of_Day", "Num_Items", "Failed_Logins", "Payment_Retries",
+        "Hour_of_Day", "Num_Items", "Failed_Logins", "Payment_Retry",
         "Risk_Score", "Verdict", "Audit_Status", "Notes"
     ];
     csvRows.push(headers.join(","));
@@ -1037,7 +1037,7 @@ function loadFlagsMatrix(tx) {
         "same_device_multiple_accounts": "Same Device Multi-Account",
         "login_location_changed": "Login Location Changed",
         "same_product_transcation_count_month": "Same Product count >5/mo",
-        "payment_retry_count": "Payment Retries >= 3",
+        "payment_retry_count": "Payment Retry >= 3",
         "failed_login_attempts": "Failed Logins >= 3",
         "National_ID_verification": "ID Verified (Negated)",
         "KKS_card_validation": "KKS Card Valid (Negated)",
@@ -1579,10 +1579,11 @@ function loadComplianceReports() {
         { id: "C6", score: 75, name: "High Frequency + Repeated Purchase + Same Product" },
         { id: "C7", score: 70, name: "Failed Logins + Payment Retry + High Frequency" },
         { id: "C8", score: 65, name: "Failed Logins + Payment Retry + Invalid Card" },
-        { id: "C9", score: 60, name: "Duplicate Account + Failed Logins" },
-        { id: "C10", score: 55, name: "Subsidy Exhausted + High Frequency" },
-        { id: "C11", score: 50, name: "Unverified ID + Invalid KKS + Invalid Card" },
-        { id: "C12", score: 45, name: "Unverified ID + Duplicate Account" }
+        { id: "C9", score: 65, name: "Duplicate Account + Payment Retry + Invalid Card" },
+        { id: "C10", score: 60, name: "Duplicate Account + Failed Logins" },
+        { id: "C11", score: 55, name: "Subsidy Exhausted + High Frequency" },
+        { id: "C12", score: 50, name: "Unverified ID + Invalid KKS + Invalid Card" },
+        { id: "C13", score: 45, name: "Unverified ID + Duplicate Account" }
     ];
    
     const comboCounts = {};
@@ -1617,10 +1618,11 @@ function loadComplianceReports() {
         if (flagMap.high_frequency && flagMap.repeated_purchase && flagMap.same_product_high) comboCounts["C6"]++;
         if (flagMap.failed_login && flagMap.payment_retry && flagMap.high_frequency) comboCounts["C7"]++;
         if (flagMap.failed_login && flagMap.payment_retry && flagMap.card_invalid) comboCounts["C8"]++;
-        if (flagMap.duplicate_account && flagMap.failed_login) comboCounts["C9"]++;
-        if (flagMap.subsidy_exhausted && flagMap.high_frequency) comboCounts["C10"]++;
-        if (flagMap.id_not_verified && flagMap.kks_not_valid && flagMap.card_invalid) comboCounts["C11"]++;
-        if (flagMap.id_not_verified && flagMap.duplicate_account) comboCounts["C12"]++;
+        if (flagMap.duplicate_account && flagMap.payment_retry && flagMap.card_invalid) comboCounts["C9"]++;
+        if (flagMap.duplicate_account && flagMap.failed_login) comboCounts["C10"]++;
+        if (flagMap.subsidy_exhausted && flagMap.high_frequency) comboCounts["C11"]++;
+        if (flagMap.id_not_verified && flagMap.kks_not_valid && flagMap.card_invalid) comboCounts["C12"]++;
+        if (flagMap.id_not_verified && flagMap.duplicate_account) comboCounts["C13"]++;
     });
    
     document.getElementById('rep-critical-count').textContent = criticalCount;
@@ -1770,7 +1772,7 @@ function renderAllCharts() {
         "same_device_multiple_accounts": "Same Device Multi-Account",
         "login_location_changed": "Login Location Changed",
         "same_product_transcation_count_month": "Same Product >5/mo",
-        "payment_retry_count": "Payment Retries >= 3",
+        "payment_retry_count": "Payment Retry >= 3",
         "failed_login_attempts": "Failed Logins >= 3",
         "National_ID_verification": "ID Not Verified",
         "KKS_card_validation": "KKS Invalid",

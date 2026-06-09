@@ -41,6 +41,160 @@ let chartRiskFactors = null;
 let activeAuditTarget = null;
 let activeAuditType = null;
 
+// Helper to parse raw user agent strings into readable Device, OS, Browser info
+function parseDeviceSignature(ua) {
+    if (!ua) return { device: 'Unknown Device', os: 'Unknown OS', browser: 'Unknown Browser', formatted: 'Unknown' };
+
+    let os = 'Unknown OS';
+    let device = 'Unknown Device';
+    let browser = 'Unknown Browser';
+
+    // 1. Parse OS
+    if (ua.includes('Android')) {
+        const match = ua.match(/Android\s+([0-9.]+)/);
+        os = match ? `Android ${match[1]}` : 'Android';
+    } else if (ua.includes('iPhone') || ua.includes('iPad') || ua.includes('iPod')) {
+        const match = ua.match(/OS\s+([0-9_]+)/);
+        os = match ? `iOS ${match[1].replace(/_/g, '.')}` : 'iOS';
+    } else if (ua.includes('Windows NT')) {
+        const match = ua.match(/Windows NT\s+([0-9.]+)/);
+        if (match) {
+            const ver = match[1];
+            if (ver === '10.0') os = 'Windows 10/11';
+            else if (ver === '6.3') os = 'Windows 8.1';
+            else if (ver === '6.2') os = 'Windows 8';
+            else if (ver === '6.1') os = 'Windows 7';
+            else os = `Windows NT ${ver}`;
+        } else {
+            os = 'Windows';
+        }
+    } else if (ua.includes('Macintosh') || ua.includes('Mac OS X')) {
+        os = 'macOS';
+    } else if (ua.includes('Linux')) {
+        os = 'Linux';
+    }
+
+    // 2. Parse Browser
+    if (ua.includes('Edg/') || ua.includes('Edge/')) {
+        browser = 'Edge';
+    } else if (ua.includes('OPR/') || ua.includes('Opera/')) {
+        browser = 'Opera';
+    } else if (ua.includes('Chrome/')) {
+        browser = 'Chrome';
+    } else if (ua.includes('Firefox/')) {
+        browser = 'Firefox';
+    } else if (ua.includes('Safari/')) {
+        browser = 'Safari';
+    }
+
+    // 3. Parse Device Model
+    const parenMatch = ua.match(/\(([^)]+)\)/);
+    if (parenMatch) {
+        const parts = parenMatch[1].split(';').map(s => s.trim());
+        const brands = ['Samsung', 'iPhone', 'iPad', 'Xiaomi', 'Oppo', 'Vivo', 'Realme', 'Poco', 'Redmi', 'OnePlus', 'Huawei', 'Pixel'];
+        let foundDevice = null;
+        
+        for (const part of parts) {
+            if (brands.some(brand => part.toLowerCase().includes(brand.toLowerCase()))) {
+                foundDevice = part;
+                break;
+            }
+        }
+
+        if (foundDevice) {
+            device = foundDevice;
+        } else {
+            if (ua.includes('iPhone')) {
+                device = 'iPhone';
+            } else if (ua.includes('iPad')) {
+                device = 'iPad';
+            } else if (ua.includes('Windows') || ua.includes('Macintosh')) {
+                device = 'Desktop PC';
+            } else if (parts.length >= 3) {
+                device = parts[2];
+            } else if (parts.length === 2 && ua.includes('Android')) {
+                device = parts[1];
+            } else {
+                device = parts[0];
+            }
+        }
+    } else {
+        if (ua.includes('iPhone')) device = 'iPhone';
+        else if (ua.includes('Windows') || ua.includes('Macintosh')) device = 'Desktop PC';
+    }
+
+    const partsList = [];
+    if (device && device !== 'Unknown Device') partsList.push(device);
+    if (os && os !== 'Unknown OS') partsList.push(os);
+    if (browser && browser !== 'Unknown Browser') partsList.push(browser);
+    
+    const formatted = partsList.length > 0 ? partsList.join(' · ') : ua;
+
+    return { device, os, browser, formatted };
+}
+
+// Renders the device audit details into the auditor slide-over panel
+function getDeviceAuditHTML(member, isNewDevice) {
+    if (!member) return '';
+    const ua = member.device_info || member.device || '';
+    const parsed = parseDeviceSignature(ua);
+    
+    // Count accounts registered on the same device signature
+    const sameDeviceCount = allMembers.filter(m => m.device_info === ua).length || 1;
+    
+    let deviceRiskMeaning = '';
+    if (sameDeviceCount > 1) {
+        deviceRiskMeaning = `Used by ${sameDeviceCount} accounts — possible duplicate account risk.`;
+    } else if (isNewDevice) {
+        deviceRiskMeaning = "New device — review if combined with other risk signals.";
+    } else {
+        deviceRiskMeaning = "Known device for this member.";
+    }
+
+    const colorStyle = (sameDeviceCount > 1 || isNewDevice) ? 'var(--color-critical)' : 'var(--color-legit)';
+
+    return `
+        <div class="glass-panel" style="padding: 16px; margin-top: 16px; border: 1px solid rgba(255,255,255,0.05); background: rgba(255,255,255,0.01);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                <i data-lucide="smartphone" style="width: 16px; height: 16px; color: #3b82f6;"></i>
+                Device & Browser Audit
+            </div>
+            <div class="detail-grid" style="grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px;">
+                <div>
+                    <div class="detail-item-label">Device Used</div>
+                    <div class="detail-item-val">${parsed.device}</div>
+                </div>
+                <div>
+                    <div class="detail-item-label">Browser</div>
+                    <div class="detail-item-val">${parsed.browser}</div>
+                </div>
+                <div>
+                    <div class="detail-item-label">Operating System</div>
+                    <div class="detail-item-val">${parsed.os}</div>
+                </div>
+                <div>
+                    <div class="detail-item-label">Accounts on Same Device</div>
+                    <div class="detail-item-val">${sameDeviceCount} accounts</div>
+                </div>
+            </div>
+            <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px;">
+                <div class="detail-item-label">Device Risk Meaning</div>
+                <div style="font-weight: 600; color: ${colorStyle}; margin-top: 2px;">
+                    ${deviceRiskMeaning}
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <details style="cursor: pointer; font-size: 12px; color: var(--text-muted);">
+                    <summary style="outline: none; user-select: none;">Technical details</summary>
+                    <div style="margin-top: 4px; padding: 6px; background: rgba(0,0,0,0.2); border-radius: 4px; font-family: monospace; word-break: break-all; font-size: 11px;">
+                        ${ua}
+                    </div>
+                </details>
+            </div>
+        </div>
+    `;
+}
+
 function toggleSidebar() {
     const sidebar = document.getElementById('app-sidebar');
     const overlay = document.getElementById('sidebar-overlay');
@@ -657,6 +811,12 @@ function openAuditorPanel(target, type) {
     const notesEl = document.getElementById('aud-notes');
     const logsEl = document.getElementById('aud-logs');
     
+    const deviceSec = document.getElementById('aud-device-section');
+    if (deviceSec) {
+        deviceSec.style.display = 'none';
+        deviceSec.innerHTML = '';
+    }
+    
     // Clear notes field
     notesEl.value = '';
     
@@ -715,6 +875,13 @@ function openAuditorPanel(target, type) {
         
         // Render history logs
         renderTargetAuditLogs(target.auditHistory);
+        
+        // Inject Device Audit info
+        const member = allMembers.find(m => m.id === target.customer_id);
+        if (member && deviceSec) {
+            deviceSec.innerHTML = getDeviceAuditHTML(member, target.login_location_changed === 1);
+            deviceSec.style.display = 'block';
+        }
         
     } else if (type === 'alert') {
         titleEl.textContent = "Incident Threat Response Unit";
@@ -780,6 +947,20 @@ function openAuditorPanel(target, type) {
         
         renderTargetAuditLogs(target.auditHistory);
         
+        // Inject Device Audit info
+        let member = null;
+        if (target.customer_id) {
+            member = allMembers.find(m => m.id === target.customer_id);
+        }
+        if (!member && target.target_type === 'member' && target.target_id) {
+            member = allMembers.find(m => m.id === target.target_id);
+        }
+        if (member && deviceSec) {
+            const isNewDevice = target.transaction_details ? (target.transaction_details.login_location_changed === 1) : (target.target_type === 'member' && member.verification_status === 'Flagged');
+            deviceSec.innerHTML = getDeviceAuditHTML(member, isNewDevice);
+            deviceSec.style.display = 'block';
+        }
+        
     } else if (type === 'member') {
         titleEl.textContent = "Member Profile Inspection";
         idTitleEl.textContent = "Registry Account Details";
@@ -788,7 +969,6 @@ function openAuditorPanel(target, type) {
         
         combosText.innerHTML = `
             <div><strong>Home Address:</strong> ${target.address}</div>
-            <div style="margin-top: 6px;"><strong>Device Stamp:</strong> <span style="font-size:11px; color:var(--text-secondary);">${target.device_info}</span></div>
             <div style="margin-top: 4px;"><strong>IP Signature:</strong> <span style="font-family: monospace;">${target.ip_address}</span></div>
         `;
 
@@ -826,6 +1006,14 @@ function openAuditorPanel(target, type) {
         `;
         
         renderTargetAuditLogs(target.auditHistory);
+        
+        // Inject Device Audit info
+        if (deviceSec) {
+            const sameDeviceCount = allMembers.filter(m => m.device_info === target.device_info).length || 1;
+            const isNewDevice = (target.verification_status === 'Flagged' && sameDeviceCount === 1);
+            deviceSec.innerHTML = getDeviceAuditHTML(target, isNewDevice);
+            deviceSec.style.display = 'block';
+        }
     }
     
     // Reload Icons

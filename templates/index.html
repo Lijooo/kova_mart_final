@@ -70,11 +70,15 @@
                 </ul>
             </nav>
             
-            <div class="sidebar-footer">
+            <div class="sidebar-footer" style="display: flex; flex-direction: column; gap: 8px;">
                 <div class="sys-health">
                     <span class="health-dot"></span>
                     <span>AI Model Active</span>
                 </div>
+                <button class="logout-btn" onclick="handleLogout()" style="width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: rgba(255, 23, 68, 0.08); border: 1px solid rgba(255, 23, 68, 0.2); color: #ff3d60; padding: 8px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.2s;">
+                    <i data-lucide="log-out" style="width: 13px; height: 13px;"></i>
+                    <span>Log Out</span>
+                </button>
             </div>
         </aside>
 
@@ -910,6 +914,38 @@
 
     <!-- ALERT TOASTS CONTAINER -->
     <div class="toast-container" id="global-toast-container"></div>
+
+    <!-- FULL-SCREEN LOGIN OVERLAY -->
+    <div id="login-overlay" style="display: none;">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">🛡️</div>
+                <h2>Kova Mart Security</h2>
+                <p>Auditor Authentication Portal</p>
+            </div>
+            <form id="login-form">
+                <div class="form-group">
+                    <label for="login-username">Username</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="user"></i>
+                        <input type="text" id="login-username" required placeholder="Enter username...">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label for="login-password">Password</label>
+                    <div class="input-wrapper">
+                        <i data-lucide="lock"></i>
+                        <input type="password" id="login-password" required placeholder="Enter password...">
+                    </div>
+                </div>
+                <div id="login-error" class="login-error-msg" style="display: none;"></div>
+                <button type="submit" class="btn-login">
+                    <span>Authenticate</span>
+                    <i data-lucide="arrow-right"></i>
+                </button>
+            </form>
+        </div>
+    </div>
 
     <!-- Frontend logic script -->
     <script src="/static/app.js"></script>

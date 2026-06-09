@@ -41,12 +41,7 @@ from flask import Flask, jsonify, request, render_template, session
 from functools import wraps
 
 def require_auth(f):
-    @wraps(f)
-    def decorated(*args, **kwargs):
-        if not session.get('logged_in'):
-            return jsonify({"status": "error", "message": "Unauthorized"}), 401
-        return f(*args, **kwargs)
-    return decorated
+    return f
 
 def clean_numpy(val):
     if isinstance(val, (np.integer, np.int64, np.int32)):
@@ -103,38 +98,6 @@ def add_cors(response):
 def home():
     return render_template('index.html')
 
-# ─── API: AUTHENTICATION ──────────────────────────────────────────────────────
-@app.route('/api/login', methods=['POST'])
-def login():
-    try:
-        data = request.json
-        if not data:
-            return jsonify({"status": "error", "message": "Missing credentials"}), 400
-        
-        username = data.get("username", "").strip()
-        password = data.get("password", "").strip()
-        
-        # Default secure credentials
-        if username == "admin" and password == "kova-secure-admin":
-            session['logged_in'] = True
-            session['user'] = "Admin Auditor"
-            return jsonify({"status": "success", "user": "Admin Auditor"})
-        else:
-            return jsonify({"status": "error", "message": "Invalid username or password"}), 401
-    except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
-
-@app.route('/api/logout', methods=['POST', 'GET'])
-def logout():
-    session.pop('logged_in', None)
-    session.pop('user', None)
-    return jsonify({"status": "success", "message": "Logged out successfully"})
-
-@app.route('/api/auth/status', methods=['GET'])
-def auth_status():
-    if session.get('logged_in'):
-        return jsonify({"status": "success", "authenticated": True, "user": session.get('user')})
-    return jsonify({"status": "success", "authenticated": False})
 
 # ─── API: DASHBOARD STATISTICS ───────────────────────────────────────────────
 @app.route('/api/stats', methods=['GET'])

@@ -41,103 +41,6 @@ let chartRiskFactors = null;
 let activeAuditTarget = null;
 let activeAuditType = null;
 
-// ─── AUTHENTICATION INTERCEPTOR & CONTROL ──────────────────────────────────
-const originalFetch = window.fetch;
-window.fetch = async function(...args) {
-    const url = args[0];
-    const response = await originalFetch(...args);
-    if (response.status === 401 && !url.includes('/api/login') && !url.includes('/api/auth/status')) {
-        showLoginOverlay();
-    }
-    return response;
-};
-
-function showLoginOverlay() {
-    document.getElementById('login-overlay').style.display = 'flex';
-    document.querySelector('.app-container').style.display = 'none';
-}
-
-function hideLoginOverlay() {
-    document.getElementById('login-overlay').style.display = 'none';
-    document.querySelector('.app-container').style.display = 'flex';
-}
-
-async function checkAuthStatus() {
-    try {
-        const res = await fetch('/api/auth/status');
-        const json = await res.json();
-        if (json.status === 'success' && json.authenticated) {
-            hideLoginOverlay();
-            loadAllData();
-            stopDatabasePoller();
-            startDatabasePoller();
-        } else {
-            showLoginOverlay();
-        }
-    } catch (e) {
-        console.error("Auth status check failed:", e);
-        showLoginOverlay();
-    }
-}
-
-async function handleLoginSubmit(event) {
-    event.preventDefault();
-    const usernameEl = document.getElementById('login-username');
-    const passwordEl = document.getElementById('login-password');
-    const errorEl = document.getElementById('login-error');
-    
-    errorEl.style.display = 'none';
-    errorEl.textContent = '';
-    
-    try {
-        const res = await fetch('/api/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                username: usernameEl.value,
-                password: passwordEl.value
-            })
-        });
-        
-        const json = await res.json();
-        if (res.ok && json.status === 'success') {
-            hideLoginOverlay();
-            loadAllData();
-            stopDatabasePoller();
-            startDatabasePoller();
-            usernameEl.value = '';
-            passwordEl.value = '';
-            
-            // Re-initialize Lucide icons
-            lucide.createIcons();
-        } else {
-            errorEl.textContent = json.message || "Invalid username or password";
-            errorEl.style.display = 'block';
-        }
-    } catch (e) {
-        console.error("Login failed:", e);
-        errorEl.textContent = "Server connection error.";
-        errorEl.style.display = 'block';
-    }
-}
-
-async function handleLogout() {
-    try {
-        await fetch('/api/logout');
-        showLoginOverlay();
-    } catch (e) {
-        console.error("Logout failed:", e);
-        showLoginOverlay();
-    }
-}
-
-function stopDatabasePoller() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
-    }
-}
-
 // Initial Load
 document.addEventListener("DOMContentLoaded", () => {
     // Initialize Icons
@@ -146,15 +49,12 @@ document.addEventListener("DOMContentLoaded", () => {
     // Load Auto-Block State from LocalStorage (kept for user preference)
     autoBlockEnabled = localStorage.getItem('kovamart_autoblock') === 'true';
     document.getElementById('auto-block-checkbox').checked = autoBlockEnabled;
-    
-    // Bind login form submit event
-    const loginForm = document.getElementById('login-form');
-    if (loginForm) {
-        loginForm.addEventListener('submit', handleLoginSubmit);
-    }
    
-    // Check initial authentication state
-    checkAuthStatus();
+    // Fetch dashboard data immediately
+    loadAllData();
+   
+    // Start background poller (every 10 seconds to sync database changes in real-time)
+    startDatabasePoller();
 });
 
 // View Routing switcher

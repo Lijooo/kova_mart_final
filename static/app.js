@@ -416,13 +416,10 @@ function updateDashboardRecentActivity(statsJson) {
 function startDatabasePoller() {
     pollingInterval = setInterval(() => {
         loadAllData();
-        // If alert center is currently visible, refresh it
-        if (document.getElementById('view-alerts').classList.contains('active')) {
+        // If Alert Audit Document is currently visible, refresh alerts in background
+        const auditDocView = document.getElementById('view-audit-doc');
+        if (auditDocView && auditDocView.classList.contains('active')) {
             fetchAlerts(true);
-        }
-        // If member registry is currently visible, refresh it
-        if (document.getElementById('view-members').classList.contains('active')) {
-            fetchMembers(true);
         }
     }, 10000);
 }

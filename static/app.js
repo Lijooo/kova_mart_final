@@ -447,7 +447,12 @@ async function fetchAlerts(silent = false) {
                 }
             }
             
-            handleAlertsFilter();
+            const alertsTable = document.getElementById('alerts-table-body');
+            if (alertsTable) handleAlertsFilter();
+            
+            const auditDocList = document.getElementById('audit-doc-alert-list');
+            if (auditDocList) handleAuditDocFilter();
+            
             updateAlertBellBadge();
         }
     } catch (e) {
@@ -475,48 +480,6 @@ function handleAlertsFilter() {
     renderAlertsTable();
 }
 
-function renderAlertsTable() {
-    const tbody = document.getElementById('alerts-table-body');
-    tbody.innerHTML = '';
-    
-    if (filteredAlerts.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching security alerts found</td></tr>`;
-        return;
-    }
-    
-    filteredAlerts.forEach(alt => {
-        const tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        tr.onclick = () => openAuditorPanel(alt, 'alert');
-        
-        let badgeClass = 'badge-low';
-        const sev = (alt.severity_level || '').toUpperCase();
-        if (sev === 'CRITICAL') badgeClass = 'badge-critical';
-        else if (sev === 'HIGH') badgeClass = 'badge-high';
-        else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
-        
-        let statusBadge = `status-pending`;
-        if (alt.status === 'Resolved') statusBadge = 'status-approved';
-        else if (alt.status === 'Under Review') statusBadge = 'status-review';
-        
-        const indicatorsText = alt.indicators.join(', ');
-        const dateFormatted = new Date(alt.detection_timestamp).toLocaleString('id-ID');
-        
-        tr.innerHTML = `
-            <td style="font-family: monospace; font-weight:600; color:var(--text-primary);">${alt.alert_id}</td>
-            <td><span class="status-badge" style="background:rgba(255,255,255,0.03); color:var(--text-secondary);">${alt.target_type.toUpperCase()}</span></td>
-            <td><strong>${alt.customer_name}</strong> (ID: #${alt.customer_id})</td>
-            <td><strong>${alt.risk_score}%</strong></td>
-            <td style="font-size:12px; color:var(--text-secondary); max-width: 200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${indicatorsText}">
-                ${indicatorsText}
-            </td>
-            <td><span class="badge ${badgeClass}"><span class="badge-dot"></span>${alt.severity_level}</span></td>
-            <td style="font-size:12px; color:var(--text-muted);">${dateFormatted}</td>
-            <td><span class="status-badge ${statusBadge}">${alt.status}</span></td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
 
 // ─── MEMBER REGISTRATION MANAGEMENT ──────────────────────────────────────────
 async function fetchMembers(silent = false) {
@@ -525,7 +488,8 @@ async function fetchMembers(silent = false) {
         const json = await res.json();
         if (json.status === 'success') {
             allMembers = json.members;
-            renderMembersTable();
+            const table = document.getElementById('members-table-body');
+            if (table) renderMembersTable();
         }
     } catch (e) {
         console.error("Members fetching error: ", e);
@@ -533,97 +497,6 @@ async function fetchMembers(silent = false) {
     }
 }
 
-function renderMembersTable() {
-    const tbody = document.getElementById('members-table-body');
-    tbody.innerHTML = '';
-    
-    if (allMembers.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 32px;">No registered members found</td></tr>`;
-        return;
-    }
-    
-    allMembers.forEach(mem => {
-        const tr = document.createElement('tr');
-        tr.style.cursor = 'pointer';
-        tr.onclick = () => openAuditorPanel(mem, 'member');
-
-        let statusClass = 'status-approved';
-        if (mem.verification_status === 'Flagged' || mem.verification_status === 'Blocked') statusClass = 'status-blocked';
-        else if (mem.verification_status === 'Under Review') statusClass = 'status-review';
-        
-        const dateFormatted = new Date(mem.registration_date).toLocaleString('id-ID');
-        
-        tr.innerHTML = `
-            <td style="font-family:var(--font-heading); font-weight:600;">#${mem.id}</td>
-            <td><strong>${mem.name}</strong></td>
-            <td style="font-family: monospace;">${mem.nik}</td>
-            <td>${mem.phone}</td>
-            <td><span class="status-badge ${statusClass}">${mem.verification_status}</span></td>
-            <td style="font-size:12px; color:var(--text-muted);">${dateFormatted}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// Autofill Device Info and IP Address
-function autoDetectDeviceAndIP() {
-    document.getElementById('mem-device').value = navigator.userAgent;
-    // Generate random Indonesian domestic IP
-    const randomIP = `180.250.${Math.floor(Math.random() * 254) + 1}.${Math.floor(Math.random() * 254) + 1}`;
-    document.getElementById('mem-ip').value = randomIP;
-    showToast("Environment Captured", "Browser signature and simulated IP appended.", "medium");
-}
-
-// Submit member registration to server
-async function submitMemberRegistration() {
-    const name = document.getElementById('mem-name').value.trim();
-    const nik = document.getElementById('mem-nik').value.trim();
-    const phone = document.getElementById('mem-phone').value.trim();
-    const kks = document.getElementById('mem-kks').value.trim();
-    const address = document.getElementById('mem-address').value.trim();
-    const device = document.getElementById('mem-device').value.trim();
-    const ip = document.getElementById('mem-ip').value.trim();
-
-    if (!name || !nik || !phone || !kks || !address || !device || !ip) {
-        showToast("Validation Error", "All registration fields are required.", "critical");
-        return;
-    }
-
-    const payload = {
-        name, nik, phone, kks_card: kks, address, device_info: device, ip_address: ip, verification_status: 'Verified'
-    };
-
-    try {
-        const res = await fetch('/api/members', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        const json = await res.json();
-        
-        if (json.status === 'success') {
-            document.getElementById('member-registration-form').reset();
-            fetchMembers(); // refresh list
-            loadAllData();  // refresh metrics
-            
-            if (json.alert_triggered) {
-                const alt = json.alert;
-                showToast(
-                    `🚨 Security Threat Flags (Risk: ${alt.risk_score}%)`,
-                    `Member ${alt.customer_name} flagged under investigation: ${alt.indicators.join(', ')}`,
-                    alt.severity.toLowerCase()
-                );
-            } else {
-                showToast("Registration Verified", `Successfully enrolled member #${json.member_id} (${name})!`, "success");
-            }
-        } else {
-            showToast("Registration Failed", json.message || "Unique NIK/Card constraint violation.", "critical");
-        }
-    } catch (e) {
-        console.error("Member registration error: ", e);
-        showToast("Server Connection Error", "Could not complete registration request.", "critical");
-    }
-}
 
 // ─── OPERATIONS CONSOLE SEARCH & SORTING ─────────────────────────────────────
 function handleFilterChange() {
@@ -823,7 +696,6 @@ function openAuditorPanel(target, type) {
     if (type === 'transaction') {
         titleEl.textContent = "Auditor Operations Center";
         idTitleEl.textContent = "Transaction Identity";
-        combosSec.style.display = 'none';
         matrixSec.style.display = 'block';
         
         const score = target.final_pct || target.risk_pct || 0;
@@ -876,8 +748,70 @@ function openAuditorPanel(target, type) {
         // Render history logs
         renderTargetAuditLogs(target.auditHistory);
         
-        // Inject Device Audit info
+        // Find associated member details & alert details
         const member = allMembers.find(m => m.id === target.customer_id);
+        const associatedAlert = allAlerts.find(a => a.target_type === 'transaction' && a.target_id === target.id);
+        
+        // Update combos section title
+        const combosTitleEl = combosSec.querySelector('.detail-section-title');
+        if (combosTitleEl) {
+            combosTitleEl.textContent = "Associated Customer & Alert Details";
+        }
+        
+        let combosHTML = '';
+        if (member) {
+            combosHTML += `
+                <div style="margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px dashed var(--border-color);">
+                    <div style="font-weight:700; color:var(--text-primary); margin-bottom: 6px; font-size:13px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="user" style="width:14px; height:14px;"></i> Customer Profile Details
+                    </div>
+                    <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 6px; font-size:12px; color:var(--text-secondary);">
+                        <div><span style="color:var(--text-muted);">NIK:</span> <span style="font-family:monospace;">${member.nik}</span></div>
+                        <div><span style="color:var(--text-muted);">KKS Card:</span> <span style="font-family:monospace;">${member.kks_card}</span></div>
+                        <div><span style="color:var(--text-muted);">Phone:</span> <span>${member.phone}</span></div>
+                        <div><span style="color:var(--text-muted);">Status:</span> <span class="status-badge status-${member.verification_status.toLowerCase()}">${member.verification_status}</span></div>
+                        <div style="grid-column: span 2;"><span style="color:var(--text-muted);">Address:</span> <span>${member.address}</span></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        if (associatedAlert) {
+            let alertColor = 'var(--color-low)';
+            const sev = (associatedAlert.severity_level || '').toUpperCase();
+            if (sev === 'CRITICAL') alertColor = 'var(--color-critical)';
+            else if (sev === 'HIGH') alertColor = 'var(--color-high)';
+            else if (sev === 'MEDIUM') alertColor = 'var(--color-medium)';
+            
+            combosHTML += `
+                <div>
+                    <div style="font-weight:700; color:var(--text-primary); margin-bottom: 6px; font-size:13px; display:flex; align-items:center; gap:6px;">
+                        <i data-lucide="bell" style="width:14px; height:14px;"></i> Associated Security Alert (${associatedAlert.alert_id})
+                    </div>
+                    <div style="font-size:12px; color:var(--text-secondary);">
+                        <div style="margin-bottom:4px;">
+                            <span style="color:var(--text-muted);">Severity:</span> 
+                            <span style="color:${alertColor}; font-weight:700;">${associatedAlert.severity_level} (${associatedAlert.risk_score}%)</span>
+                            <span style="margin-left: 8px; color:var(--text-muted);">Status:</span> 
+                            <span class="status-badge status-${associatedAlert.status === 'Resolved' ? 'approved' : associatedAlert.status === 'Under Review' ? 'review' : 'pending'}">${associatedAlert.status}</span>
+                        </div>
+                        <div style="margin-bottom:4px;"><span style="color:var(--text-muted);">Vector:</span> <span style="color:var(--color-critical); font-family:monospace;">${associatedAlert.indicators.join(' | ')}</span></div>
+                        <div><span style="color:var(--text-muted);">Recommended:</span> <span style="font-style:italic;">${associatedAlert.recommended_action}</span></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            combosHTML += `
+                <div style="font-size:12px; color:var(--text-muted); font-style:italic;">
+                    No security alert generated for this transaction (risk score below threat threshold).
+                </div>
+            `;
+        }
+        
+        combosText.innerHTML = combosHTML;
+        combosSec.style.display = 'block';
+
+        // Inject Device Audit info
         if (member && deviceSec) {
             deviceSec.innerHTML = getDeviceAuditHTML(member, target.login_location_changed === 1);
             deviceSec.style.display = 'block';
@@ -1935,8 +1869,8 @@ async function populateBellDropdown() {
         item.className = 'dropdown-item';
         item.onclick = () => {
             closeBellDropdown();
-            switchView('alerts');
-            openAuditorPanel(alt, 'alert');
+            switchView('audit-doc');
+            selectAuditDocAlert(alt.id);
         };
         
         let color = 'var(--color-low)';
@@ -1958,5 +1892,341 @@ async function populateBellDropdown() {
 
 function viewAllAlerts() {
     closeBellDropdown();
-    switchView('alerts');
+    switchView('audit-doc');
+}
+
+// ─── ALERT AUDIT DOCUMENT VIEW & EXPORT ──────────────────────────────────────
+let activeDocAlert = null;
+
+function handleAuditDocFilter() {
+    const searchInput = document.getElementById('audit-doc-search-input');
+    if (!searchInput) return;
+    const searchVal = searchInput.value.toLowerCase().trim();
+    const severityFilter = document.getElementById('filter-doc-severity').value;
+    const statusFilter = document.getElementById('filter-doc-status').value;
+
+    const filtered = allAlerts.filter(alt => {
+        const matchSearch = alt.alert_id.toLowerCase().includes(searchVal) ||
+                            alt.customer_name.toLowerCase().includes(searchVal) ||
+                            alt.customer_id.toString().includes(searchVal);
+                            
+        const matchSeverity = (severityFilter === 'ALL' || (alt.severity_level || '').toUpperCase() === severityFilter.toUpperCase());
+        const matchStatus = (statusFilter === 'ALL' || alt.status === statusFilter);
+        
+        return matchSearch && matchSeverity && matchStatus;
+    });
+
+    renderAuditDocAlertList(filtered);
+}
+
+function renderAuditDocAlertList(alertsList) {
+    const container = document.getElementById('audit-doc-alert-list');
+    if (!container) return;
+    container.innerHTML = '';
+
+    if (alertsList.length === 0) {
+        container.innerHTML = '<div style="text-align:center; padding: 20px; color:var(--text-muted); font-size:13px;">No matching alerts found</div>';
+        return;
+    }
+
+    alertsList.forEach(alt => {
+        const item = document.createElement('div');
+        item.className = 'doc-alert-item';
+        if (activeDocAlert && activeDocAlert.id === alt.id) {
+            item.classList.add('active');
+        }
+
+        let badgeClass = 'badge-low';
+        const sev = (alt.severity_level || '').toUpperCase();
+        if (sev === 'CRITICAL') badgeClass = 'badge-critical';
+        else if (sev === 'HIGH') badgeClass = 'badge-high';
+        else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
+
+        let statusBadge = `status-pending`;
+        if (alt.status === 'Resolved') statusBadge = 'status-approved';
+        else if (alt.status === 'Under Review') statusBadge = 'status-review';
+
+        item.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:6px;">
+                <span style="font-family:monospace; font-weight:600; font-size:13px; color:var(--text-primary);">${alt.alert_id}</span>
+                <span class="status-badge ${statusBadge}" style="font-size:10px; padding:2px 6px;">${alt.status}</span>
+            </div>
+            <div style="font-size:12px; color:var(--text-secondary); margin-bottom:6px;">
+                <strong>${alt.customer_name}</strong> (ID: #${alt.customer_id})
+            </div>
+            <div style="display:flex; justify-content:space-between; align-items:center; font-size:11px;">
+                <span class="badge ${badgeClass}" style="transform:scale(0.85); transform-origin:left center;"><span class="badge-dot"></span>${alt.severity_level}</span>
+                <span style="color:var(--text-muted); font-size:10px;">${new Date(alt.detection_timestamp).toLocaleDateString('id-ID')}</span>
+            </div>
+        `;
+
+        item.onclick = () => {
+            document.querySelectorAll('.doc-alert-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            selectAuditDocAlert(alt.id);
+        };
+
+        container.appendChild(item);
+    });
+}
+
+function selectAuditDocAlert(alertId) {
+    const alert = allAlerts.find(a => a.id === alertId);
+    if (!alert) return;
+    activeDocAlert = alert;
+
+    // Show report container, hide empty state
+    document.getElementById('document-empty-state').style.display = 'none';
+    document.getElementById('document-report-container').style.display = 'flex';
+
+    // 1. Incident Overview
+    document.getElementById('rep-meta-alert-id').textContent = alert.alert_id;
+    const statusBadge = document.getElementById('rep-meta-status');
+    statusBadge.textContent = alert.status;
+    statusBadge.className = 'status-badge ' + (alert.status === 'Resolved' ? 'status-approved' : alert.status === 'Under Review' ? 'status-review' : 'status-pending');
+
+    const severityBadge = document.getElementById('rep-meta-severity');
+    severityBadge.textContent = alert.severity_level;
+    let badgeClass = 'badge-low';
+    const sev = (alert.severity_level || '').toUpperCase();
+    if (sev === 'CRITICAL') badgeClass = 'badge-critical';
+    else if (sev === 'HIGH') badgeClass = 'badge-high';
+    else if (sev === 'MEDIUM') badgeClass = 'badge-medium';
+    severityBadge.className = 'badge ' + badgeClass;
+
+    document.getElementById('rep-meta-timestamp').textContent = new Date(alert.detection_timestamp).toLocaleString('id-ID');
+
+    // 2. Target Subject Profile
+    document.getElementById('rep-subj-name').textContent = alert.customer_name;
+    document.getElementById('rep-subj-id').textContent = '#' + alert.customer_id;
+
+    // Find associated member details
+    const member = allMembers.find(m => m.id === alert.customer_id);
+    if (member) {
+        document.getElementById('rep-subj-nik').textContent = member.nik;
+        document.getElementById('rep-subj-kks').textContent = member.kks_card;
+        document.getElementById('rep-subj-phone').textContent = member.phone;
+        document.getElementById('rep-subj-address').textContent = member.address;
+        
+        // 4. Device & Network Signature
+        const deviceData = parseDeviceSignature(member.device_info);
+        document.getElementById('rep-device-friendly').textContent = deviceData.device;
+        document.getElementById('rep-device-os').textContent = deviceData.os;
+        document.getElementById('rep-device-browser').textContent = deviceData.browser;
+        document.getElementById('rep-device-ip').textContent = member.ip_address;
+        document.getElementById('rep-device-raw-ua').textContent = member.device_info;
+
+        // Accounts on same device
+        const sameDeviceCount = allMembers.filter(m => m.device_info === member.device_info).length || 1;
+        let deviceRiskText = '';
+        if (sameDeviceCount > 1) {
+            deviceRiskText = `Used by ${sameDeviceCount} accounts — possible duplicate account risk.`;
+        } else if (alert.transaction_details && alert.transaction_details.login_location_changed === 1) {
+            deviceRiskText = "New device — review if combined with other risk signals.";
+        } else {
+            deviceRiskText = "Known device for this member.";
+        }
+        document.getElementById('rep-device-accounts-summary').textContent = deviceRiskText;
+    } else {
+        document.getElementById('rep-subj-nik').textContent = 'N/A';
+        document.getElementById('rep-subj-kks').textContent = 'N/A';
+        document.getElementById('rep-subj-phone').textContent = 'N/A';
+        document.getElementById('rep-subj-address').textContent = 'N/A';
+        document.getElementById('rep-device-friendly').textContent = 'N/A';
+        document.getElementById('rep-device-os').textContent = 'N/A';
+        document.getElementById('rep-device-browser').textContent = 'N/A';
+        document.getElementById('rep-device-ip').textContent = 'N/A';
+        document.getElementById('rep-device-raw-ua').textContent = 'N/A';
+        document.getElementById('rep-device-accounts-summary').textContent = 'N/A';
+    }
+
+    // 3. Threat Evaluation & Rules
+    document.getElementById('rep-threat-score').textContent = alert.risk_score + '%';
+    
+    // Map combination rules
+    const combo = findTriggeredCombination(alert);
+    if (combo) {
+        document.getElementById('rep-threat-vector-id').textContent = combo.id;
+        document.getElementById('rep-threat-vector-name').textContent = combo.name;
+    } else {
+        document.getElementById('rep-threat-vector-id').textContent = 'N/A';
+        document.getElementById('rep-threat-vector-name').textContent = alert.target_type === 'member' ? 'Member Registry Anomaly' : 'Individual Indicators Only';
+    }
+    
+    // Human readable individual flags
+    const flagLabelsMap = {
+        "flag_ip_outsider": "Foreign IP Address",
+        "flag_repeated_purchase": "Repeated Purchase >10",
+        "flag_high_frequency": "Transaction Freq >3/hr",
+        "flag_duplicate_account": "Duplicate Account",
+        "flag_same_device": "Same Device Multi-Account",
+        "flag_location_changed": "Login Location Changed",
+        "flag_same_product_high": "Same Product count >5/mo",
+        "flag_payment_retry": "Payment Retry >= 3",
+        "flag_failed_login": "Failed Logins >= 3",
+        "flag_id_not_verified": "ID Not Verified",
+        "flag_kks_not_valid": "KKS Invalid",
+        "flag_card_invalid": "Card Invalid",
+        "flag_subsidy_exhausted": "Subsidy Exhausted",
+        "flag_kiosk": "Kiosk Transaction"
+    };
+    
+    const mappedFlags = alert.indicators.map(f => flagLabelsMap[f] || f);
+    document.getElementById('rep-threat-flags').textContent = mappedFlags.join(' | ');
+
+    // 5. Transaction Specifics
+    const txSection = document.getElementById('rep-tx-applicable-section');
+    const txNotSection = document.getElementById('rep-tx-not-applicable-section');
+    if (alert.target_type === 'transaction' && alert.transaction_details) {
+        txSection.style.display = 'block';
+        txNotSection.style.display = 'none';
+        document.getElementById('rep-tx-id').textContent = '#' + alert.target_id;
+        document.getElementById('rep-tx-amount').textContent = 'Rp ' + parseFloat(alert.transaction_details.transaction_amount).toLocaleString('id-ID');
+        document.getElementById('rep-tx-items').textContent = alert.transaction_details.num_items + ' items';
+        document.getElementById('rep-tx-balance').textContent = 'Rp ' + parseFloat(alert.transaction_details.Subsidy_balance).toLocaleString('id-ID');
+    } else {
+        txSection.style.display = 'none';
+        txNotSection.style.display = 'block';
+    }
+
+    // 6. Audit Notes & Resolution
+    document.getElementById('rep-audit-recommended').textContent = alert.recommended_action;
+    
+    const notesHistory = alert.auditHistory || [];
+    const latestNoteLog = notesHistory.find(l => l.note && l.note.trim() !== '');
+    document.getElementById('rep-audit-notes').textContent = latestNoteLog ? latestNoteLog.note : 'No audit notes appended yet.';
+
+    // 7. Case History Timeline
+    const timelineTbody = document.getElementById('rep-timeline-tbody');
+    timelineTbody.innerHTML = '';
+    
+    if (notesHistory.length === 0) {
+        timelineTbody.innerHTML = `<tr><td colspan="4" style="text-align:center; color:#666;">No audit timeline history recorded.</td></tr>`;
+    } else {
+        const sortedHistory = [...notesHistory].reverse();
+        sortedHistory.forEach(log => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td style="white-space:nowrap; font-size:11px; color:#555;">${new Date(log.timestamp).toLocaleString('id-ID')}</td>
+                <td><strong>${log.operator}</strong></td>
+                <td><span class="status-badge status-${log.action === 'resolved' ? 'approved' : log.action === 'triggered' ? 'pending' : 'review'}" style="font-size:10px; padding:1px 5px;">${log.action.toUpperCase()}</span></td>
+                <td style="font-size:11.5px; color:#333;">${log.note || ''}</td>
+            `;
+            timelineTbody.appendChild(tr);
+        });
+    }
+
+    // Footer timestamp
+    document.getElementById('rep-footer-print-time').textContent = new Date().toLocaleString('id-ID');
+}
+
+function findTriggeredCombination(alert) {
+    const indicators = alert.indicators || [];
+    const combinations = [
+        { id: "C1", score: 100, name: "Foreign IP + Failed Logins + Payment Retry", flags: ["flag_ip_outsider", "flag_failed_login", "flag_payment_retry"] },
+        { id: "C2", score: 95, name: "Foreign IP + Location Changed + Same Device", flags: ["flag_ip_outsider", "flag_location_changed", "flag_same_device"] },
+        { id: "C3", score: 90, name: "Foreign IP + Duplicate Account", flags: ["flag_ip_outsider", "flag_duplicate_account"] },
+        { id: "C4", score: 85, name: "Foreign IP + Subsidy Exhausted", flags: ["flag_ip_outsider", "flag_subsidy_exhausted"] },
+        { id: "C5", score: 80, name: "Duplicate Account + Same Device + Location Changed", flags: ["flag_duplicate_account", "flag_same_device", "flag_location_changed"] },
+        { id: "C6", score: 75, name: "High Frequency + Repeated Purchase + Same Product", flags: ["flag_high_frequency", "flag_repeated_purchase", "flag_same_product_high"] },
+        { id: "C7", score: 70, name: "Failed Logins + Payment Retry + High Frequency", flags: ["flag_failed_login", "flag_payment_retry", "flag_high_frequency"] },
+        { id: "C8", score: 65, name: "Failed Logins + Payment Retry + Invalid Card", flags: ["flag_failed_login", "flag_payment_retry", "flag_card_invalid"] },
+        { id: "C9", score: 65, name: "Duplicate Account + Payment Retry + Invalid Card", flags: ["flag_duplicate_account", "flag_payment_retry", "flag_card_invalid"] },
+        { id: "C10", score: 60, name: "Duplicate Account + Failed Logins", flags: ["flag_duplicate_account", "flag_failed_login"] },
+        { id: "C11", score: 55, name: "Subsidy Exhausted + High Frequency", flags: ["flag_subsidy_exhausted", "flag_high_frequency"] },
+        { id: "C12", score: 50, name: "Unverified ID + Invalid KKS + Invalid Card", flags: ["flag_id_not_verified", "flag_kks_not_valid", "flag_card_invalid"] },
+        { id: "C13", score: 45, name: "Unverified ID + Duplicate Account", flags: ["flag_id_not_verified", "flag_duplicate_account"] }
+    ];
+    
+    const matches = combinations.filter(c => c.flags.every(f => indicators.includes(f)));
+    if (matches.length > 0) {
+        matches.sort((a, b) => b.score - a.score);
+        return matches[0];
+    }
+    return null;
+}
+
+function exportAlertToPDF() {
+    if (!activeDocAlert) return;
+    window.print();
+}
+
+function exportAlertToDOCX() {
+    if (!activeDocAlert) return;
+    const reportHtml = document.getElementById('printable-report-sheet').innerHTML;
+    
+    const docHtml = `
+        <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+        <head>
+            <title>Kova Mart Security Audit Report - ${activeDocAlert.alert_id}</title>
+            <style>
+                body { font-family: Arial, sans-serif; line-height: 1.6; font-size: 11pt; color: #1a1a1a; padding: 20px; }
+                h1, h2, h3 { color: #111111; margin-top: 15px; margin-bottom: 5px; }
+                .report-header { text-align: center; border-bottom: 2px solid #111; padding-bottom: 15px; margin-bottom: 20px; }
+                .report-divider { border-top: 2px solid #111; margin: 15px 0; }
+                .report-section-title { font-weight: bold; background: #e0e0e0; padding: 5px 10px; margin: 15px 0 10px 0; border-left: 5px solid #ff1744; font-size: 12pt; }
+                table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                td, th { padding: 8px; border: 1px solid #d0d0d0; font-size: 10pt; text-align: left; vertical-align: top; }
+                th { background-color: #f2f2f2; font-weight: bold; }
+                .status-badge { font-weight: bold; padding: 2px 5px; border-radius: 3px; background-color: #f0f0f0; }
+            </style>
+        </head>
+        <body>
+            ${reportHtml}
+        </body>
+        </html>
+    `;
+    
+    const blob = new Blob(['\\ufeff' + docHtml], { type: 'application/msword' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `Alert_Audit_Report_${activeDocAlert.alert_id}.doc`;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function exportAlertToCSV() {
+    if (!activeDocAlert) return;
+    const member = allMembers.find(m => m.id === activeDocAlert.customer_id) || {};
+    const combo = findTriggeredCombination(activeDocAlert) || {};
+    const deviceData = member.device_info ? parseDeviceSignature(member.device_info) : { device: "N/A", os: "N/A", browser: "N/A" };
+    
+    const data = [
+        ["Field", "Value"],
+        ["Alert Case ID", activeDocAlert.alert_id],
+        ["Target Type", activeDocAlert.target_type],
+        ["Target ID", activeDocAlert.target_id],
+        ["Case Status", activeDocAlert.status],
+        ["Risk Level", activeDocAlert.severity_level],
+        ["Composite Risk Score", activeDocAlert.risk_score + "%"],
+        ["Detection Time", activeDocAlert.detection_timestamp],
+        ["Customer Name", activeDocAlert.customer_name],
+        ["Customer ID", activeDocAlert.customer_id],
+        ["National ID (NIK)", member.nik || "N/A"],
+        ["KKS Card Number", member.kks_card || "N/A"],
+        ["Phone Number", member.phone || "N/A"],
+        ["Address", member.address || "N/A"],
+        ["Device Model", deviceData.device],
+        ["Device OS", deviceData.os],
+        ["Device Browser", deviceData.browser],
+        ["IP Address", member.ip_address || "N/A"],
+        ["Triggered Combination ID", combo.id || "N/A"],
+        ["Triggered Combination Name", combo.name || "N/A"],
+        ["Individual Triggered Flags", activeDocAlert.indicators.join(" | ")],
+        ["Recommended Action", activeDocAlert.recommended_action],
+        ["Auditor Notes", activeDocAlert.auditHistory && activeDocAlert.auditHistory.length > 0 ? activeDocAlert.auditHistory[0].note : "No notes"]
+    ];
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    data.forEach(row => {
+        const rowString = row.map(val => `"${val.toString().replace(/"/g, '""')}"`).join(",");
+        csvContent += rowString + "\r\n";
+    });
+    
+    const encodedUri = encodeURI(csvContent);
+    const a = document.createElement('a');
+    a.href = encodedUri;
+    a.download = `Alert_Audit_Report_${activeDocAlert.alert_id}.csv`;
+    a.click();
 }

@@ -32,21 +32,15 @@
                         </button>
                     </li>
                     <li>
-                        <button class="menu-item-btn" onclick="switchView('alerts')">
-                            <i data-lucide="bell"></i>
-                            <span>Alert Center</span>
-                        </button>
-                    </li>
-                    <li>
                         <button class="menu-item-btn" onclick="switchView('operations')">
                             <i data-lucide="shield-alert"></i>
                             <span>Operations Console</span>
                         </button>
                     </li>
                     <li>
-                        <button class="menu-item-btn" onclick="switchView('members')">
-                            <i data-lucide="users"></i>
-                            <span>Member Registry</span>
+                        <button class="menu-item-btn" onclick="switchView('audit-doc')">
+                            <i data-lucide="file-text"></i>
+                            <span>Alert Audit Document</span>
                         </button>
                     </li>
                     <li>
@@ -322,51 +316,209 @@
                 </div>
             </section>
 
-            <!-- VIEW 2: ALERT CENTER (REAL-TIME ALERTS VIEW) -->
-            <section id="view-alerts" class="view-container">
-                <div class="table-controls">
-                    <div class="search-wrapper">
-                        <i data-lucide="search"></i>
-                        <input type="text" id="alerts-search-input" class="search-input" placeholder="Search alert, customer name..." oninput="handleAlertsFilter()">
+            <!-- VIEW: ALERT AUDIT DOCUMENT (EXECUTIVE REPORTING PAGE) -->
+            <section id="view-audit-doc" class="view-container">
+                <div class="audit-doc-layout">
+                    <!-- Left: Alert Selector Pane -->
+                    <div class="glass-panel alert-selector-pane">
+                        <div class="chart-title">Select Security Incident Alert</div>
+                        <div class="search-wrapper" style="margin-bottom: 12px;">
+                            <i data-lucide="search"></i>
+                            <input type="text" id="audit-doc-search-input" class="search-input" placeholder="Search alert, name..." oninput="handleAuditDocFilter()">
+                        </div>
+                        <div class="filter-group" style="margin-bottom: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+                            <select id="filter-doc-severity" class="filter-select" onchange="handleAuditDocFilter()">
+                                <option value="ALL">All Severities</option>
+                                <option value="Critical">Critical</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                            <select id="filter-doc-status" class="filter-select" onchange="handleAuditDocFilter()">
+                                <option value="ALL">All Statuses</option>
+                                <option value="Open">Open</option>
+                                <option value="Under Review">Under Review</option>
+                                <option value="Resolved">Resolved</option>
+                            </select>
+                        </div>
+                        <div class="alert-list-container" id="audit-doc-alert-list">
+                            <!-- Loaded dynamically -->
+                        </div>
                     </div>
-                    
-                    <div class="filter-group">
-                        <select id="filter-alert-severity" class="filter-select" onchange="handleAlertsFilter()">
-                            <option value="ALL">All Severities</option>
-                            <option value="Critical">🔴 Critical</option>
-                            <option value="High">🟠 High</option>
-                            <option value="Medium">🟡 Medium</option>
-                            <option value="Low">🟢 Low</option>
-                        </select>
-                        
-                        <select id="filter-alert-status" class="filter-select" onchange="handleAlertsFilter()">
-                            <option value="ALL">All Statuses</option>
-                            <option value="Open">Open</option>
-                            <option value="Under Review">Under Review</option>
-                            <option value="Resolved">Resolved</option>
-                        </select>
-                    </div>
-                </div>
 
-                <div class="glass-panel table-card">
-                    <div class="table-wrapper">
-                        <table class="data-table">
-                            <thead>
-                                <tr>
-                                    <th>Alert ID</th>
-                                    <th>Target</th>
-                                    <th>Customer (ID)</th>
-                                    <th>Risk Score</th>
-                                    <th>Indicators Triggered</th>
-                                    <th>Severity</th>
-                                    <th>Detection Time</th>
-                                    <th>Status</th>
-                                </tr>
-                            </thead>
-                            <tbody id="alerts-table-body">
-                                <!-- Loaded dynamically -->
-                            </tbody>
-                        </table>
+                    <!-- Right: Document A4 Report Preview -->
+                    <div class="glass-panel document-preview-pane">
+                        <div id="document-empty-state" class="document-empty-state">
+                            <i data-lucide="file-text" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 12px;"></i>
+                            <div>Select an alert from the sidebar list to generate audit document</div>
+                        </div>
+                        
+                        <div id="document-report-container" class="document-report-container" style="display: none;">
+                            <!-- Report Toolbar -->
+                            <div class="document-toolbar">
+                                <button class="btn btn-secondary" onclick="exportAlertToPDF()">
+                                    <i data-lucide="file-down"></i> Export PDF
+                                </button>
+                                <button class="btn btn-secondary" onclick="exportAlertToDOCX()">
+                                    <i data-lucide="file-text"></i> Export DOCX
+                                </button>
+                                <button class="btn btn-secondary" onclick="exportAlertToCSV()">
+                                    <i data-lucide="download"></i> Export CSV
+                                </button>
+                            </div>
+
+                            <!-- Document Paper Sheet -->
+                            <div class="document-paper" id="printable-report-sheet">
+                                <div class="report-header">
+                                    <div class="header-logo">🛡️</div>
+                                    <div class="header-title-block">
+                                        <div class="report-org-name">KOVA MART AI FRAUD AUDIT SYSTEM</div>
+                                        <div class="report-title">SECURITY INCIDENT VERDICT & AUDIT FILE</div>
+                                    </div>
+                                    <div class="report-confidential">CLASSIFICATION: CONFIDENTIAL</div>
+                                </div>
+                                <div class="report-divider"></div>
+                                
+                                <div class="report-section-title">1. INCIDENT OVERVIEW</div>
+                                <table class="report-meta-table">
+                                    <tr>
+                                        <td><strong>Alert Case ID:</strong></td>
+                                        <td id="rep-meta-alert-id" style="font-family: monospace; font-weight: 600;"></td>
+                                        <td><strong>Case Status:</strong></td>
+                                        <td><span id="rep-meta-status" class="status-badge"></span></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Risk Level:</strong></td>
+                                        <td><span id="rep-meta-severity" class="badge"></span></td>
+                                        <td><strong>Detection Time:</strong></td>
+                                        <td id="rep-meta-timestamp"></td>
+                                    </tr>
+                                </table>
+
+                                <div class="report-section-title">2. TARGET SUBJECT PROFILE</div>
+                                <table class="report-meta-table">
+                                    <tr>
+                                        <td><strong>Customer Name:</strong></td>
+                                        <td id="rep-subj-name" style="font-weight: 600;"></td>
+                                        <td><strong>Customer ID:</strong></td>
+                                        <td id="rep-subj-id"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>National ID (NIK):</strong></td>
+                                        <td id="rep-subj-nik" style="font-family: monospace;"></td>
+                                        <td><strong>KKS Card Number:</strong></td>
+                                        <td id="rep-subj-kks" style="font-family: monospace;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Phone Contacts:</strong></td>
+                                        <td id="rep-subj-phone"></td>
+                                        <td><strong>Registry Address:</strong></td>
+                                        <td id="rep-subj-address"></td>
+                                    </tr>
+                                </table>
+
+                                <div class="report-section-title">3. THREAT EVALUATION & RULES</div>
+                                <table class="report-meta-table">
+                                    <tr>
+                                        <td><strong>Composite Risk Score:</strong></td>
+                                        <td id="rep-threat-score" style="font-weight: 700; font-size: 15px;"></td>
+                                        <td><strong>Priority Vector ID:</strong></td>
+                                        <td id="rep-threat-vector-id" style="font-family: monospace; font-weight: 600; color: var(--color-critical);"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Triggered Combo Rule:</strong></td>
+                                        <td id="rep-threat-vector-name" colspan="3" style="font-weight: 500;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Triggered Indicators:</strong></td>
+                                        <td id="rep-threat-flags" colspan="3" style="font-size: 12px; font-family: monospace; color: var(--text-secondary);"></td>
+                                    </tr>
+                                </table>
+
+                                <div class="report-section-title">4. DEVICE & NETWORK SIGNATURE</div>
+                                <table class="report-meta-table">
+                                    <tr>
+                                        <td><strong>Device Used:</strong></td>
+                                        <td id="rep-device-friendly"></td>
+                                        <td><strong>Operating System:</strong></td>
+                                        <td id="rep-device-os"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Web Browser:</strong></td>
+                                        <td id="rep-device-browser"></td>
+                                        <td><strong>IP Address / Log:</strong></td>
+                                        <td id="rep-device-ip" style="font-family: monospace;"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Device Accounts:</strong></td>
+                                        <td id="rep-device-accounts-summary" colspan="3"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Device Fingerprint UA:</strong></td>
+                                        <td colspan="3" style="font-size: 11px; color: var(--text-muted);">
+                                            <details>
+                                                <summary style="cursor: pointer; user-select: none;">View Technical Raw User Agent</summary>
+                                                <div id="rep-device-raw-ua" style="margin-top: 4px; font-family: monospace; word-break: break-all;"></div>
+                                            </details>
+                                        </td>
+                                    </tr>
+                                </table>
+
+                                <div class="report-section-title">5. TRANSACTION SPECIFICS (IF APPLICABLE)</div>
+                                <div id="rep-tx-applicable-section" style="display: none;">
+                                    <table class="report-meta-table">
+                                        <tr>
+                                            <td><strong>Transaction ID:</strong></td>
+                                            <td id="rep-tx-id" style="font-family: monospace;"></td>
+                                            <td><strong>Transaction Amount:</strong></td>
+                                            <td id="rep-tx-amount" style="font-weight: 500;"></td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Items Purchased:</strong></td>
+                                            <td id="rep-tx-items"></td>
+                                            <td><strong>Subsidy Balance (Post):</strong></td>
+                                            <td id="rep-tx-balance"></td>
+                                        </tr>
+                                    </table>
+                                </div>
+                                <div id="rep-tx-not-applicable-section" style="padding: 6px 12px; font-size: 12px; color: var(--text-muted); font-style: italic;">
+                                    This alert was triggered by member profile registration anomaly. No transaction is linked.
+                                </div>
+
+                                <div class="report-section-title">6. AUDIT RESOLUTION NOTES</div>
+                                <table class="report-meta-table">
+                                    <tr>
+                                        <td><strong>Recommended Action:</strong></td>
+                                        <td id="rep-audit-recommended" style="font-style: italic; color: var(--text-secondary);"></td>
+                                    </tr>
+                                    <tr>
+                                        <td><strong>Auditor Notes:</strong></td>
+                                        <td id="rep-audit-notes" style="font-weight: 500;"></td>
+                                    </tr>
+                                </table>
+
+                                <div class="report-section-title">7. CASE HISTORY AUDIT TRAIL</div>
+                                <div class="table-wrapper">
+                                    <table class="report-timeline-table">
+                                        <thead>
+                                            <tr>
+                                                <th>Timestamp</th>
+                                                <th>Actor</th>
+                                                <th>Action</th>
+                                                <th>Notes / Details</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="rep-timeline-tbody">
+                                            <!-- Chronological logs -->
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <div class="report-footer" style="margin-top: 40px; text-align: center; font-size: 11px; color: var(--text-muted); border-top: 1px dashed var(--border-color); padding-top: 10px;">
+                                    Document printed dynamically from Kova Mart AI Security Vault. Timestamp: <span id="rep-footer-print-time"></span>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </section>
@@ -439,84 +591,6 @@
                 </div>
             </section>
 
-            <!-- VIEW 4: MEMBER REGISTRATION & REGISTRY -->
-            <section id="view-members" class="view-container">
-                <div class="simulator-layout">
-                    <!-- Member Form -->
-                    <div class="glass-panel simulator-form">
-                        <div class="chart-title">Add New Member Registration</div>
-                        <form id="member-registration-form" onsubmit="event.preventDefault(); submitMemberRegistration();">
-                            <div style="display: flex; flex-direction: column; gap: 16px;">
-                                <div class="form-group">
-                                    <label>Full Name</label>
-                                    <input type="text" id="mem-name" class="form-input" placeholder="e.g. Budi Santoso" required>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label>National ID Number (NIK)</label>
-                                    <input type="text" id="mem-nik" class="form-input" placeholder="16 digit Indonesian NIK" maxlength="16" minlength="16" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Phone Number</label>
-                                    <input type="text" id="mem-phone" class="form-input" placeholder="e.g. 081234567890" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>KKS Card Number (Subsidy Card)</label>
-                                    <input type="text" id="mem-kks" class="form-input" placeholder="16 digit KKS card number" maxlength="16" minlength="16" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Home Address</label>
-                                    <textarea id="mem-address" class="notes-input" style="min-height: 60px;" placeholder="Full residential address..." required></textarea>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Device Signature</label>
-                                    <input type="text" id="mem-device" class="form-input" placeholder="Device identifier info" required>
-                                </div>
-
-                                <div class="form-group">
-                                    <label>Registration IP Address</label>
-                                    <input type="text" id="mem-ip" class="form-input" placeholder="e.g. 180.250.44.112" required>
-                                </div>
-
-                                <div style="display: flex; gap: 12px; margin-top: 8px;">
-                                    <button type="button" class="btn btn-secondary" onclick="autoDetectDeviceAndIP()">
-                                        <i data-lucide="detective"></i> Autofill Device
-                                    </button>
-                                    <button type="submit" class="btn" style="flex-grow: 1;">
-                                        <i data-lucide="user-check"></i> Register Member
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
-
-                    <!-- Members Registry Table -->
-                    <div class="glass-panel prediction-panel" style="flex-grow: 2; display: flex; flex-direction: column; min-height: 400px;">
-                        <div class="chart-title">Registered Members Registry</div>
-                        <div class="table-wrapper" style="flex-grow: 1;">
-                            <table class="data-table" style="font-size: 13px;">
-                                <thead>
-                                    <tr>
-                                        <th>ID</th>
-                                        <th>Name</th>
-                                        <th>NIK</th>
-                                        <th>Phone</th>
-                                        <th>Verification</th>
-                                        <th>Registered Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="members-table-body">
-                                    <!-- Loaded dynamically -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </section>
 
             <!-- VIEW 5: RISK SIMULATOR (PLAYGROUND) -->
             <section id="view-simulator" class="view-container">

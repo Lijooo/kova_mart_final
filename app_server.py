@@ -726,16 +726,17 @@ def audit_transaction():
             VALUES ('transaction', ?, ?, ?, ?, ?)
         """, (tx_id, status, note or f"Transaction marked as {status}.", operator, timestamp))
         
-        # 3. If there is an associated Open alert for this transaction, resolve it automatically
+        # 3. If there is an associated Open/Under Review alert for this transaction, update its status
         cursor.execute("SELECT id, alert_id FROM alerts WHERE target_type = 'transaction' AND target_id = ? AND status != 'Resolved'", (tx_id,))
         open_alert = cursor.fetchone()
         if open_alert:
             alert_db_id = open_alert["id"]
-            cursor.execute("UPDATE alerts SET status = 'Resolved' WHERE id = ?", (alert_db_id,))
+            alert_status = 'Resolved' if status in ['approved', 'blocked'] else 'Under Review'
+            cursor.execute("UPDATE alerts SET status = ? WHERE id = ?", (alert_status, alert_db_id))
             cursor.execute("""
                 INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-                VALUES ('alert', ?, 'resolved', ?, ?, ?)
-            """, (alert_db_id, f"Alert auto-resolved due to manual transaction audit update to {status.upper()}.", operator, timestamp))
+                VALUES ('alert', ?, ?, ?, ?, ?)
+            """, (alert_db_id, alert_status.lower(), f"Alert status updated to {alert_status} due to manual transaction audit update to {status.upper()}.", operator, timestamp))
             
         conn.commit()
         conn.close()

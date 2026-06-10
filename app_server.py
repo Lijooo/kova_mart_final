@@ -4,6 +4,9 @@ import json
 import traceback
 import numpy as np
 import random
+import threading
+import time
+import csv
 from datetime import datetime
 
 # 1. Force UTF-8 stdout encoding (Windows compatibility)
@@ -818,104 +821,161 @@ def analyze_batch():
         return jsonify({"status": "error", "message": str(e)}), 500
 
 # ─── API: GENERATE SYNTHETIC TRANSACTION ─────────────────────────────────────
+CSV_LOG_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generated_transactions_log.csv")
+
+def save_to_csv_log(tx, score, level, verdict, alert_id=None):
+    file_exists = os.path.exists(CSV_LOG_PATH)
+    headers = [
+        "timestamp", "customer_id", "Initial_Subsidy", "transaction_amount", "Subsidy_balance", 
+        "hour_of_day", "num_items", "repeated_product_purchase", "same_product_transaction_count_month",
+        "prev_transactions", "is_first_transaction", "National_ID_verification", "KKS_card_validation", 
+        "Duplicate_account_detection", "Transaction frequency (>3 per hour)", "valid_card", 
+        "IP address (outside Indonesia )", "app(0) vs kiosk(1)transaction", "failed_login_attempts", 
+        "payment_retry_count", "same_device_multiple_accounts", "login_location_changed", 
+        "risk_score", "risk_level", "verdict", "alert_id"
+    ]
+    
+    row = {
+        "timestamp": datetime.now().isoformat(),
+        "customer_id": int(tx.get("Name/customer_id", 999)),
+        "Initial_Subsidy": float(tx.get("Initial_Subsidy", 0.0)),
+        "transaction_amount": float(tx.get("transaction_amount", 0.0)),
+        "Subsidy_balance": float(tx.get("Subsidy_balance", 0.0)),
+        "hour_of_day": int(tx.get("hour_of_day", 12)),
+        "num_items": int(tx.get("num_items", 1)),
+        "repeated_product_purchase": int(tx.get("repeated_product_purchase(>10)", tx.get("repeated_product_purchase", 0))),
+        "same_product_transaction_count_month": int(tx.get("same_product_transcation_count_month", tx.get("same_product_transaction_count_month", 0))),
+        "prev_transactions": int(tx.get("prev_transactions", 0)),
+        "is_first_transaction": int(tx.get("is_first_transaction", 0)),
+        "National_ID_verification": int(tx.get("National_ID_verification", 1)),
+        "KKS_card_validation": int(tx.get("KKS_card_validation", 1)),
+        "Duplicate_account_detection": int(tx.get("Duplicate_account_detection", 0)),
+        "Transaction frequency (>3 per hour)": int(tx.get("Transaction frequency (>3 per hour)", 0)),
+        "valid_card": int(tx.get("valid_card", 1)),
+        "IP address (outside Indonesia )": int(tx.get("IP address (outside Indonesia )", 0)),
+        "app(0) vs kiosk(1)transaction": int(tx.get("app(0) vs kiosk(1)transaction", 0)),
+        "failed_login_attempts": int(tx.get("failed_login_attempts", 0)),
+        "payment_retry_count": int(tx.get("payment_retry_count", 0)),
+        "same_device_multiple_accounts": int(tx.get("same_device_multiple_accounts", 0)),
+        "login_location_changed": int(tx.get("login_location_changed", 0)),
+        "risk_score": float(score),
+        "risk_level": level,
+        "verdict": verdict,
+        "alert_id": alert_id or ""
+    }
+    
+    with open(CSV_LOG_PATH, mode="a", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=headers)
+        if not file_exists:
+            writer.writeheader()
+        writer.writerow(row)
+
+def generate_and_score_transaction_internal():
+    tx = final.generate_one_transaction()
+    
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT id, name, ip_address, device_info FROM members ORDER BY RANDOM() LIMIT 1")
+    member = cursor.fetchone()
+    
+    if member:
+        c_id = member["id"]
+        name = member["name"]
+        tx["Name/customer_id"] = c_id
+        is_outside = 1 if not member["ip_address"].startswith("180.250.") else 0
+        tx["IP address (outside Indonesia )"] = is_outside
+    else:
+        c_id = 999
+        name = "Default Customer"
+        tx["Name/customer_id"] = c_id
+        
+    res = final.score_transaction(tx)
+    score = res["final_pct"]
+    timestamp = datetime.now().isoformat()
+    
+    # 1. Save Transaction to database
+    cursor.execute("""
+        INSERT INTO transactions (
+            customer_id, initial_subsidy, transaction_amount, subsidy_balance, hour_of_day, num_items,
+            repeated_product_purchase, same_product_transaction_count_month, prev_transactions,
+            is_first_transaction, national_id_verification, kks_card_validation, duplicate_account_detection,
+            transaction_frequency_high, valid_card, ip_outside_indonesia, app_vs_kiosk, failed_login_attempts,
+            payment_retry_count, same_device_multiple_accounts, login_location_changed, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (c_id, float(tx["Initial_Subsidy"]), float(tx["transaction_amount"]), float(tx["Subsidy_balance"]),
+          int(tx["hour_of_day"]), int(tx["num_items"]), int(tx.get("repeated_product_purchase(>10)", 0)),
+          int(tx.get("same_product_transcation_count_month", 0)), int(tx["prev_transactions"]),
+          int(tx["is_first_transaction"]), int(tx["National_ID_verification"]), int(tx["KKS_card_validation"]),
+          int(tx["Duplicate_account_detection"]), int(tx["Transaction frequency (>3 per hour)"]),
+          int(tx["valid_card"]), int(tx["IP address (outside Indonesia )"]), int(tx["app(0) vs kiosk(1)transaction"]),
+          int(tx["failed_login_attempts"]), int(tx["payment_retry_count"]),
+          int(tx.get("same_device_multiple_accounts", 0)), int(tx.get("login_location_changed", 0)),
+          "review" if score >= 55 else "approved"))
+    tx_id = cursor.lastrowid
+    
+    # 2. Save Risk Score
+    level = res["level"].replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "").replace("🟢 ", "").split()[0]
+    verdict = res["verdict"]
+    cursor.execute("""
+        INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
+        VALUES ('transaction', ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (tx_id, res["rule_based_pct"], res["ai_prob"], score,
+          level, verdict, json.dumps([k for k, v in res["flags"].items() if v == 1]),
+          json.dumps([c["combo_id"] for c in res["triggered_combos"]])))
+    
+    # 3. Log Audit Entry
+    cursor.execute("""
+        INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+        VALUES ('transaction', ?, 'created', ?, 'System', ?)
+    """, (tx_id, f"Generated transaction for {name}. Score: {score}%. Status: {'REVIEW' if score >= 55 else 'APPROVED'}.", timestamp))
+    
+    alert_id = None
+    # 4. Generate Alert if Score >= 55%
+    if score >= 55:
+        rec_act = "Flag account for immediate review. Inspect payment retry logs."
+        if level == "CRITICAL":
+            rec_act = "IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance."
+        elif level == "HIGH":
+            rec_act = "Verify identity document (NIK) and review login location history."
+            
+        alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-TX{tx_id:04d}"
+        triggered_flags = [k for k, v in res["flags"].items() if v == 1]
+        
+        cursor.execute("""
+            INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
+            VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?)
+        """, (alert_id, tx_id, name, c_id, score, json.dumps(triggered_flags), json.dumps(tx), timestamp, level, rec_act))
+        alert_db_id = cursor.lastrowid
+        
+        # Log Alert
+        cursor.execute("""
+            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+            VALUES ('alert', ?, 'triggered', ?, 'System', ?)
+        """, (alert_db_id, f"Alert {alert_id} generated for {name} transaction ID {tx_id}.", timestamp))
+        
+    conn.commit()
+    conn.close()
+    
+    # Sync documentation
+    database.sync_all_documentation()
+    
+    # Save generated/scored transactions to log CSV file
+    save_to_csv_log(tx, score, level, verdict, alert_id)
+    
+    # Print backend logs
+    print(f"Generated transaction TX{tx_id:04d} for {name}")
+    print(f"Risk score: {score}%")
+    if alert_id:
+        print(f"Alert created: {alert_id}")
+    print("Stored in generated_transactions_log.csv")
+    
+    return tx, score, alert_id
+
 @app.route('/api/generate', methods=['GET'])
 def generate_tx():
     try:
-        # Generate raw transaction
-        tx = final.generate_one_transaction()
+        tx, score, alert_id = generate_and_score_transaction_internal()
         
-        # Link it to a random member from the database
-        conn = database.get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT id, name, ip_address, device_info FROM members ORDER BY RANDOM() LIMIT 1")
-        member = cursor.fetchone()
-        
-        if member:
-            c_id = member["id"]
-            name = member["name"]
-            # Sync transaction parameters with member's profile
-            tx["Name/customer_id"] = c_id
-            
-            # Map outside Indonesia flag based on IP
-            is_outside = 1 if not member["ip_address"].startswith("180.250.") else 0
-            tx["IP address (outside Indonesia )"] = is_outside
-        else:
-            # Fallback
-            c_id = 999
-            name = "Default Customer"
-            tx["Name/customer_id"] = c_id
-            
-        # Evaluate using hybrid engine
-        res = final.score_transaction(tx)
-        score = res["final_pct"]
-        
-        timestamp = datetime.now().isoformat()
-        
-        # 1. Save Transaction to database
-        cursor.execute("""
-            INSERT INTO transactions (
-                customer_id, initial_subsidy, transaction_amount, subsidy_balance, hour_of_day, num_items,
-                repeated_product_purchase, same_product_transaction_count_month, prev_transactions,
-                is_first_transaction, national_id_verification, kks_card_validation, duplicate_account_detection,
-                transaction_frequency_high, valid_card, ip_outside_indonesia, app_vs_kiosk, failed_login_attempts,
-                payment_retry_count, same_device_multiple_accounts, login_location_changed, status
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (c_id, float(tx["Initial_Subsidy"]), float(tx["transaction_amount"]), float(tx["Subsidy_balance"]),
-              int(tx["hour_of_day"]), int(tx["num_items"]), int(tx.get("repeated_product_purchase(>10)", 0)),
-              int(tx.get("same_product_transcation_count_month", 0)), int(tx["prev_transactions"]),
-              int(tx["is_first_transaction"]), int(tx["National_ID_verification"]), int(tx["KKS_card_validation"]),
-              int(tx["Duplicate_account_detection"]), int(tx["Transaction frequency (>3 per hour)"]),
-              int(tx["valid_card"]), int(tx["IP address (outside Indonesia )"]), int(tx["app(0) vs kiosk(1)transaction"]),
-              int(tx["failed_login_attempts"]), int(tx["payment_retry_count"]),
-              int(tx.get("same_device_multiple_accounts", 0)), int(tx.get("login_location_changed", 0)),
-              "review" if score >= 55 else "approved"))
-        tx_id = cursor.lastrowid
-        
-        # 2. Save Risk Score
-        cursor.execute("""
-            INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
-            VALUES ('transaction', ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (tx_id, res["rule_based_pct"], res["ai_prob"], score,
-              res["level"].replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "").replace("🟢 ", "").split()[0],
-              res["verdict"], json.dumps([k for k, v in res["flags"].items() if v == 1]),
-              json.dumps([c["combo_id"] for c in res["triggered_combos"]])))
-        
-        # 3. Log Audit Entry
-        cursor.execute("""
-            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-            VALUES ('transaction', ?, 'created', ?, 'System', ?)
-        """, (tx_id, f"Generated transaction for {name}. Score: {score}%. Status: {'REVIEW' if score >= 55 else 'APPROVED'}.", timestamp))
-        
-        # 4. Generate Alert if Score >= 55%
-        if score >= 55:
-            sev = res["level"].replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "").replace("🟢 ", "").split()[0]
-            rec_act = "Flag account for immediate review. Inspect payment retry logs."
-            if sev == "CRITICAL":
-                rec_act = "IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance."
-            elif sev == "HIGH":
-                rec_act = "Verify identity document (NIK) and review login location history."
-                
-            alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-TX{tx_id:04d}"
-            triggered_flags = [k for k, v in res["flags"].items() if v == 1]
-            
-            cursor.execute("""
-                INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
-                VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?)
-            """, (alert_id, tx_id, name, c_id, score, json.dumps(triggered_flags), json.dumps(tx), timestamp, sev, rec_act))
-            alert_db_id = cursor.lastrowid
-            
-            # Log Alert
-            cursor.execute("""
-                INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-                VALUES ('alert', ?, 'triggered', ?, 'System', ?)
-            """, (alert_db_id, f"Alert {alert_id} generated for {name} transaction ID {tx_id}.", timestamp))
-            
-        conn.commit()
-        conn.close()
-        
-        # Sync documentation
-        database.sync_all_documentation()
-
         # Format clean response matching CSV headers
         clean_tx = {}
         for k, v in tx.items():
@@ -925,13 +985,14 @@ def generate_tx():
                 clean_tx[k] = float(v)
             else:
                 clean_tx[k] = v
-        clean_tx["Name/customer_id"] = c_id
-        clean_tx["customer_id"] = c_id
+        clean_tx["Name/customer_id"] = tx.get("Name/customer_id", 999)
+        clean_tx["customer_id"] = tx.get("Name/customer_id", 999)
 
         return jsonify({"status": "success", "transaction": clean_tx})
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
 
 # ─── API: ANALYZE ONE TRANSACTION ────────────────────────────────────────────
 @app.route('/api/analyze', methods=['POST', 'OPTIONS'])
@@ -1001,6 +1062,55 @@ def analyze_tx():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500
+
+# ─── BACKGROUND TRANSACTION GENERATOR ──────────────────────────────────────────
+LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generator.lock")
+
+def generator_loop():
+    my_pid = os.getpid()
+    try:
+        with open(LOCK_FILE, "w") as f:
+            f.write(str(my_pid))
+        print(f"[Background Generator] Started thread in process PID: {my_pid}")
+    except Exception as e:
+        print(f"[Background Generator] Error writing lock file: {e}")
+        
+    while True:
+        # Check if background generator is enabled
+        enabled = os.environ.get("ENABLE_BACKGROUND_GENERATOR", "false").lower() == "true"
+        
+        # Check PID lock to prevent duplicate threads in multi-worker environments
+        try:
+            if os.path.exists(LOCK_FILE):
+                with open(LOCK_FILE, "r") as f:
+                    lock_pid = f.read().strip()
+                if lock_pid and int(lock_pid) != my_pid:
+                    print(f"[Background Generator] PID mismatch (lock: {lock_pid}, mine: {my_pid}). Terminating thread.")
+                    break
+        except Exception as e:
+            print(f"[Background Generator] Lock check warning: {e}")
+            
+        if enabled:
+            try:
+                generate_and_score_transaction_internal()
+            except Exception as e:
+                print(f"[Background Generator] Error generating transaction: {e}")
+                traceback.print_exc()
+                
+        # Read interval dynamically
+        try:
+            interval = float(os.environ.get("BACKGROUND_GENERATOR_INTERVAL", "30"))
+        except Exception:
+            interval = 30.0
+            
+        time.sleep(interval)
+
+def start_background_generator():
+    t = threading.Thread(target=generator_loop, daemon=True)
+    t.start()
+
+# Start background generator automatically on module import/load
+start_background_generator()
 
 # ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':

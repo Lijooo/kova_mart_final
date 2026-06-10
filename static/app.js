@@ -313,6 +313,61 @@ async function loadAllData() {
     }
 }
 
+// Synthesize warn/alert sounds using Web Audio API
+function playAlertSound(severity) {
+    try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        
+        // Resume if suspended (browser security autoplays)
+        if (ctx.state === 'suspended') {
+            ctx.resume();
+        }
+        
+        const severityLower = (severity || '').toLowerCase();
+        if (severityLower === 'critical') {
+            // CRITICAL: Double high-pitch beep
+            let osc1 = ctx.createOscillator();
+            let gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(880, ctx.currentTime); // A5 (high beep)
+            gain1.gain.setValueAtTime(0.15, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.15);
+            
+            // Beep 2 (offset by 0.2s)
+            let osc2 = ctx.createOscillator();
+            let gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(880, ctx.currentTime + 0.2); // A5 (high beep)
+            gain2.gain.setValueAtTime(0.15, ctx.currentTime + 0.2);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(ctx.currentTime + 0.2);
+            osc2.stop(ctx.currentTime + 0.35);
+        } else if (severityLower === 'high') {
+            // HIGH: Low-frequency warning pulse
+            let osc = ctx.createOscillator();
+            let gain = ctx.createGain();
+            osc.type = 'sawtooth'; // warning texture
+            osc.frequency.setValueAtTime(220, ctx.currentTime); // A3 (low buzz)
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.3);
+        }
+    } catch (e) {
+        console.warn("Web Audio API warning: ", e);
+    }
+}
+
 // Check if any critical/high alert has newly arrived and fire a Toast
 function checkForNewAlerts(recentAlerts) {
     if (!recentAlerts || recentAlerts.length === 0) return;
@@ -333,6 +388,11 @@ function checkForNewAlerts(recentAlerts) {
                     `Alert ${alt.alert_id} generated for ${alt.customer_name}: ${alt.fraud_indicators_triggered.join(', ')}`,
                     alt.severity_level.toLowerCase()
                 );
+                
+                const sev = (alt.severity_level || '').toLowerCase();
+                if (sev === 'critical' || sev === 'high') {
+                    playAlertSound(alt.severity_level);
+                }
             }
         }
     });

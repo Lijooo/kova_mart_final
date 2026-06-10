@@ -2,6 +2,1163 @@
 
 Official record of all generated security alerts, threat analyses, and investigation outcomes.
 
+## Alert ALT-20260610-TX1188 - OPEN
+- **Target Type:** TRANSACTION (ID: 1188)
+- **Customer Name:** Hadi Siregar (ID: 92)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:49:26.939457
+- **Investigation Timeline:**
+  - **[2026-06-10T15:49:26.939457]** (System): TRIGGERED - Alert ALT-20260610-TX1188 generated for Hadi Siregar transaction ID 1188.
+
+---
+
+## Alert ALT-20260610-TX1187 - OPEN
+- **Target Type:** TRANSACTION (ID: 1187)
+- **Customer Name:** Sri Santoso (ID: 636)
+- **Threat Score:** 75.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_high_frequency", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:49:21.795427
+- **Investigation Timeline:**
+  - **[2026-06-10T15:49:21.795427]** (System): TRIGGERED - Alert ALT-20260610-TX1187 generated for Sri Santoso transaction ID 1187.
+
+---
+
+## Alert ALT-20260610-TX1183 - OPEN
+- **Target Type:** TRANSACTION (ID: 1183)
+- **Customer Name:** Rini Nasution (ID: 507)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:49:01.255650
+- **Investigation Timeline:**
+  - **[2026-06-10T15:49:01.255650]** (System): TRIGGERED - Alert ALT-20260610-TX1183 generated for Rini Nasution transaction ID 1183.
+
+---
+
+## Alert ALT-20260610-TX1182 - OPEN
+- **Target Type:** TRANSACTION (ID: 1182)
+- **Customer Name:** Joko Susanti (ID: 62)
+- **Threat Score:** 95.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:56.172779
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:56.172779]** (System): TRIGGERED - Alert ALT-20260610-TX1182 generated for Joko Susanti transaction ID 1182.
+
+---
+
+## Alert ALT-20260610-TX1180 - OPEN
+- **Target Type:** TRANSACTION (ID: 1180)
+- **Customer Name:** Hendra Setiawan (ID: 578)
+- **Threat Score:** 95.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_location_changed", "flag_payment_retry", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:45.997250
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:45.997250]** (System): TRIGGERED - Alert ALT-20260610-TX1180 generated for Hendra Setiawan transaction ID 1180.
+
+---
+
+## Alert ALT-20260610-TX1178 - OPEN
+- **Target Type:** TRANSACTION (ID: 1178)
+- **Customer Name:** Rudi Susanti (ID: 767)
+- **Threat Score:** 94.9%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_duplicate_account", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:35.825297
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:35.825297]** (System): TRIGGERED - Alert ALT-20260610-TX1178 generated for Rudi Susanti transaction ID 1178.
+
+---
+
+## Alert ALT-20260610-TX1177 - OPEN
+- **Target Type:** TRANSACTION (ID: 1177)
+- **Customer Name:** Mega Siregar (ID: 974)
+- **Threat Score:** 91.4%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_duplicate_account", "flag_location_changed", "flag_kks_not_valid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:30.765737
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:30.765737]** (System): TRIGGERED - Alert ALT-20260610-TX1177 generated for Mega Siregar transaction ID 1177.
+
+---
+
+## Alert ALT-20260610-TX1176 - OPEN
+- **Target Type:** TRANSACTION (ID: 1176)
+- **Customer Name:** Hendra Kusuma (ID: 686)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_same_device", "flag_failed_login", "flag_id_not_verified", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:25.659829
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:25.659829]** (System): TRIGGERED - Alert ALT-20260610-TX1176 generated for Hendra Kusuma transaction ID 1176.
+
+---
+
+## Alert ALT-20260610-TX1175 - OPEN
+- **Target Type:** TRANSACTION (ID: 1175)
+- **Customer Name:** Eko Pratama (ID: 393)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_duplicate_account", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:48:20.558110
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:20.558110]** (System): TRIGGERED - Alert ALT-20260610-TX1175 generated for Eko Pratama transaction ID 1175.
+
+---
+
+## Alert ALT-20260610-TX1174 - OPEN
+- **Target Type:** TRANSACTION (ID: 1174)
+- **Customer Name:** Mega Pratama (ID: 131)
+- **Threat Score:** 99.2%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_kks_not_valid"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:48:15.421705
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:15.421705]** (System): TRIGGERED - Alert ALT-20260610-TX1174 generated for Mega Pratama transaction ID 1174.
+
+---
+
+## Alert ALT-20260610-TX1173 - OPEN
+- **Target Type:** TRANSACTION (ID: 1173)
+- **Customer Name:** Hendra Gunawan (ID: 295)
+- **Threat Score:** 98.7%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_location_changed", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:48:10.291145
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:10.291145]** (System): TRIGGERED - Alert ALT-20260610-TX1173 generated for Hendra Gunawan transaction ID 1173.
+
+---
+
+## Alert ALT-20260610-TX1172 - OPEN
+- **Target Type:** TRANSACTION (ID: 1172)
+- **Customer Name:** Lani Suharto (ID: 289)
+- **Threat Score:** 97.9%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_location_changed", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:48:05.160266
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:05.160266]** (System): TRIGGERED - Alert ALT-20260610-TX1172 generated for Lani Suharto transaction ID 1172.
+
+---
+
+## Alert ALT-20260610-TX1171 - OPEN
+- **Target Type:** TRANSACTION (ID: 1171)
+- **Customer Name:** Rini Kusuma (ID: 256)
+- **Threat Score:** 95.8%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:48:00.023716
+- **Investigation Timeline:**
+  - **[2026-06-10T15:48:00.023716]** (System): TRIGGERED - Alert ALT-20260610-TX1171 generated for Rini Kusuma transaction ID 1171.
+
+---
+
+## Alert ALT-20260610-TX1169 - OPEN
+- **Target Type:** TRANSACTION (ID: 1169)
+- **Customer Name:** Lani Gunawan (ID: 5)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_duplicate_account", "flag_failed_login", "flag_id_not_verified", "flag_card_invalid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:47:49.704675
+- **Investigation Timeline:**
+  - **[2026-06-10T15:47:49.704675]** (System): TRIGGERED - Alert ALT-20260610-TX1169 generated for Lani Gunawan transaction ID 1169.
+
+---
+
+## Alert ALT-20260610-TX1168 - OPEN
+- **Target Type:** TRANSACTION (ID: 1168)
+- **Customer Name:** Hendra Wijaya (ID: 564)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:47:44.548242
+- **Investigation Timeline:**
+  - **[2026-06-10T15:47:44.548242]** (System): TRIGGERED - Alert ALT-20260610-TX1168 generated for Hendra Wijaya transaction ID 1168.
+
+---
+
+## Alert ALT-20260610-TX1164 - OPEN
+- **Target Type:** TRANSACTION (ID: 1164)
+- **Customer Name:** Hadi Santoso (ID: 477)
+- **Threat Score:** 91.6%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_id_not_verified", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:47:23.927439
+- **Investigation Timeline:**
+  - **[2026-06-10T15:47:23.927439]** (System): TRIGGERED - Alert ALT-20260610-TX1164 generated for Hadi Santoso transaction ID 1164.
+
+---
+
+## Alert ALT-20260610-TX1161 - OPEN
+- **Target Type:** TRANSACTION (ID: 1161)
+- **Customer Name:** Andi Setiawan (ID: 117)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:47:08.514379
+- **Investigation Timeline:**
+  - **[2026-06-10T15:47:08.514379]** (System): TRIGGERED - Alert ALT-20260610-TX1161 generated for Andi Setiawan transaction ID 1161.
+
+---
+
+## Alert ALT-20260610-TX1160 - OPEN
+- **Target Type:** TRANSACTION (ID: 1160)
+- **Customer Name:** Eko Santoso (ID: 948)
+- **Threat Score:** 94.2%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:47:03.411558
+- **Investigation Timeline:**
+  - **[2026-06-10T15:47:03.411558]** (System): TRIGGERED - Alert ALT-20260610-TX1160 generated for Eko Santoso transaction ID 1160.
+
+---
+
+## Alert ALT-20260610-TX1159 - OPEN
+- **Target Type:** TRANSACTION (ID: 1159)
+- **Customer Name:** Budi Gunawan (ID: 843)
+- **Threat Score:** 93.9%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_same_device", "flag_id_not_verified", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:46:58.321888
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:58.321888]** (System): TRIGGERED - Alert ALT-20260610-TX1159 generated for Budi Gunawan transaction ID 1159.
+
+---
+
+## Alert ALT-20260610-TX1158 - OPEN
+- **Target Type:** TRANSACTION (ID: 1158)
+- **Customer Name:** Yanto Setiawan (ID: 413)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:46:53.167812
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:53.167812]** (System): TRIGGERED - Alert ALT-20260610-TX1158 generated for Yanto Setiawan transaction ID 1158.
+
+---
+
+## Alert ALT-20260610-TX1156 - OPEN
+- **Target Type:** TRANSACTION (ID: 1156)
+- **Customer Name:** Hendra Santoso (ID: 84)
+- **Threat Score:** 75.7%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_payment_retry", "flag_kks_not_valid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:46:43.003897
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:43.003897]** (System): TRIGGERED - Alert ALT-20260610-TX1156 generated for Hendra Santoso transaction ID 1156.
+
+---
+
+## Alert ALT-20260610-TX1155 - OPEN
+- **Target Type:** TRANSACTION (ID: 1155)
+- **Customer Name:** Budi Astuti (ID: 512)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_location_changed", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:46:37.939422
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:37.939422]** (System): TRIGGERED - Alert ALT-20260610-TX1155 generated for Budi Astuti transaction ID 1155.
+
+---
+
+## Alert ALT-20260610-TX1153 - OPEN
+- **Target Type:** TRANSACTION (ID: 1153)
+- **Customer Name:** Mega Susanti (ID: 461)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_duplicate_account", "flag_location_changed", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:46:27.775964
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:27.775964]** (System): TRIGGERED - Alert ALT-20260610-TX1153 generated for Mega Susanti transaction ID 1153.
+
+---
+
+## Alert ALT-20260610-TX1148 - OPEN
+- **Target Type:** TRANSACTION (ID: 1148)
+- **Customer Name:** Sri Wijaya (ID: 950)
+- **Threat Score:** 88.8%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_failed_login", "flag_subsidy_exhausted", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:46:01.938529
+- **Investigation Timeline:**
+  - **[2026-06-10T15:46:01.938529]** (System): TRIGGERED - Alert ALT-20260610-TX1148 generated for Sri Wijaya transaction ID 1148.
+
+---
+
+## Alert ALT-20260610-TX1146 - OPEN
+- **Target Type:** TRANSACTION (ID: 1146)
+- **Customer Name:** Hadi Hidayat (ID: 406)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:45:51.623210
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:51.623210]** (System): TRIGGERED - Alert ALT-20260610-TX1146 generated for Hadi Hidayat transaction ID 1146.
+
+---
+
+## Alert ALT-20260610-TX1145 - OPEN
+- **Target Type:** TRANSACTION (ID: 1145)
+- **Customer Name:** Joko Nasution (ID: 489)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:45:46.462579
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:46.462579]** (System): TRIGGERED - Alert ALT-20260610-TX1145 generated for Joko Nasution transaction ID 1145.
+
+---
+
+## Alert ALT-20260610-TX1142 - OPEN
+- **Target Type:** TRANSACTION (ID: 1142)
+- **Customer Name:** Rudi Setiawan (ID: 185)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_location_changed", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:45:30.975032
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:30.975032]** (System): TRIGGERED - Alert ALT-20260610-TX1142 generated for Rudi Setiawan transaction ID 1142.
+
+---
+
+## Alert ALT-20260610-TX1141 - OPEN
+- **Target Type:** TRANSACTION (ID: 1141)
+- **Customer Name:** Mega Pratama (ID: 131)
+- **Threat Score:** 100.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:45:25.824715
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:25.824715]** (System): TRIGGERED - Alert ALT-20260610-TX1141 generated for Mega Pratama transaction ID 1141.
+
+---
+
+## Alert ALT-20260610-TX1140 - OPEN
+- **Target Type:** TRANSACTION (ID: 1140)
+- **Customer Name:** Rudi Pratama (ID: 241)
+- **Threat Score:** 95.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_location_changed", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:45:20.688802
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:20.688802]** (System): TRIGGERED - Alert ALT-20260610-TX1140 generated for Rudi Pratama transaction ID 1140.
+
+---
+
+## Alert ALT-20260610-TX1139 - OPEN
+- **Target Type:** TRANSACTION (ID: 1139)
+- **Customer Name:** Dewi Nasution (ID: 973)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_duplicate_account", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:45:15.558814
+- **Investigation Timeline:**
+  - **[2026-06-10T15:45:15.558814]** (System): TRIGGERED - Alert ALT-20260610-TX1139 generated for Dewi Nasution transaction ID 1139.
+
+---
+
+## Alert ALT-20260610-TX1135 - OPEN
+- **Target Type:** TRANSACTION (ID: 1135)
+- **Customer Name:** Dewi Gunawan (ID: 361)
+- **Threat Score:** 98.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:44:54.978926
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:54.978926]** (System): TRIGGERED - Alert ALT-20260610-TX1135 generated for Dewi Gunawan transaction ID 1135.
+
+---
+
+## Alert ALT-20260610-TX1134 - OPEN
+- **Target Type:** TRANSACTION (ID: 1134)
+- **Customer Name:** Dewi Gunawan (ID: 361)
+- **Threat Score:** 98.7%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_id_not_verified", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:44:49.841710
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:49.841710]** (System): TRIGGERED - Alert ALT-20260610-TX1134 generated for Dewi Gunawan transaction ID 1134.
+
+---
+
+## Alert ALT-20260610-TX1133 - OPEN
+- **Target Type:** TRANSACTION (ID: 1133)
+- **Customer Name:** Yanto Hidayat (ID: 911)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_high_frequency", "flag_duplicate_account", "flag_location_changed", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:44:44.697071
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:44.697071]** (System): TRIGGERED - Alert ALT-20260610-TX1133 generated for Yanto Hidayat transaction ID 1133.
+
+---
+
+## Alert ALT-20260610-TX1132 - OPEN
+- **Target Type:** TRANSACTION (ID: 1132)
+- **Customer Name:** Sri Kusuma (ID: 829)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:44:39.565750
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:39.565750]** (System): TRIGGERED - Alert ALT-20260610-TX1132 generated for Sri Kusuma transaction ID 1132.
+
+---
+
+## Alert ALT-20260610-TX1129 - OPEN
+- **Target Type:** TRANSACTION (ID: 1129)
+- **Customer Name:** Siti Siregar (ID: 259)
+- **Threat Score:** 75.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:44:24.094505
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:24.094505]** (System): TRIGGERED - Alert ALT-20260610-TX1129 generated for Siti Siregar transaction ID 1129.
+
+---
+
+## Alert ALT-20260610-TX1128 - OPEN
+- **Target Type:** TRANSACTION (ID: 1128)
+- **Customer Name:** Joko Suharto (ID: 33)
+- **Threat Score:** 99.2%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:44:18.935999
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:18.935999]** (System): TRIGGERED - Alert ALT-20260610-TX1128 generated for Joko Suharto transaction ID 1128.
+
+---
+
+## Alert ALT-20260610-TX1126 - OPEN
+- **Target Type:** TRANSACTION (ID: 1126)
+- **Customer Name:** Rudi Gunawan (ID: 164)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_kks_not_valid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:44:08.570725
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:08.570725]** (System): TRIGGERED - Alert ALT-20260610-TX1126 generated for Rudi Gunawan transaction ID 1126.
+
+---
+
+## Alert ALT-20260610-TX1125 - OPEN
+- **Target Type:** TRANSACTION (ID: 1125)
+- **Customer Name:** Dewi Astuti (ID: 82)
+- **Threat Score:** 100.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:44:03.429744
+- **Investigation Timeline:**
+  - **[2026-06-10T15:44:03.429744]** (System): TRIGGERED - Alert ALT-20260610-TX1125 generated for Dewi Astuti transaction ID 1125.
+
+---
+
+## Alert ALT-20260610-TX1124 - OPEN
+- **Target Type:** TRANSACTION (ID: 1124)
+- **Customer Name:** Rini Astuti (ID: 83)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_duplicate_account", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:43:58.301067
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:58.301067]** (System): TRIGGERED - Alert ALT-20260610-TX1124 generated for Rini Astuti transaction ID 1124.
+
+---
+
+## Alert ALT-20260610-TX1123 - OPEN
+- **Target Type:** TRANSACTION (ID: 1123)
+- **Customer Name:** Hendra Kusuma (ID: 444)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_location_changed", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:43:53.225040
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:53.225040]** (System): TRIGGERED - Alert ALT-20260610-TX1123 generated for Hendra Kusuma transaction ID 1123.
+
+---
+
+## Alert ALT-20260610-TX1122 - OPEN
+- **Target Type:** TRANSACTION (ID: 1122)
+- **Customer Name:** Agus Kusuma (ID: 66)
+- **Threat Score:** 73.2%
+- **Severity Level:** LOW
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_card_invalid"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:43:48.159195
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:48.159195]** (System): TRIGGERED - Alert ALT-20260610-TX1122 generated for Agus Kusuma transaction ID 1122.
+
+---
+
+## Alert ALT-20260610-TX1120 - OPEN
+- **Target Type:** TRANSACTION (ID: 1120)
+- **Customer Name:** Rini Pratama (ID: 133)
+- **Threat Score:** 75.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:43:37.947539
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:37.947539]** (System): TRIGGERED - Alert ALT-20260610-TX1120 generated for Rini Pratama transaction ID 1120.
+
+---
+
+## Alert ALT-20260610-TX1118 - OPEN
+- **Target Type:** TRANSACTION (ID: 1118)
+- **Customer Name:** Lani Kusuma (ID: 13)
+- **Threat Score:** 99.3%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_payment_retry"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:43:27.515887
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:27.515887]** (System): TRIGGERED - Alert ALT-20260610-TX1118 generated for Lani Kusuma transaction ID 1118.
+
+---
+
+## Alert ALT-20260610-TX1116 - OPEN
+- **Target Type:** TRANSACTION (ID: 1116)
+- **Customer Name:** Sri Nasution (ID: 346)
+- **Threat Score:** 100.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:43:17.192872
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:17.192872]** (System): TRIGGERED - Alert ALT-20260610-TX1116 generated for Sri Nasution transaction ID 1116.
+
+---
+
+## Alert ALT-20260610-TX1115 - OPEN
+- **Target Type:** TRANSACTION (ID: 1115)
+- **Customer Name:** Yanto Pratama (ID: 182)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:43:12.054745
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:12.054745]** (System): TRIGGERED - Alert ALT-20260610-TX1115 generated for Yanto Pratama transaction ID 1115.
+
+---
+
+## Alert ALT-20260610-TX1114 - OPEN
+- **Target Type:** TRANSACTION (ID: 1114)
+- **Customer Name:** Dewi Astuti (ID: 274)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:43:06.930121
+- **Investigation Timeline:**
+  - **[2026-06-10T15:43:06.930121]** (System): TRIGGERED - Alert ALT-20260610-TX1114 generated for Dewi Astuti transaction ID 1114.
+
+---
+
+## Alert ALT-20260610-TX1111 - OPEN
+- **Target Type:** TRANSACTION (ID: 1111)
+- **Customer Name:** Dewi Suharto (ID: 312)
+- **Threat Score:** 98.1%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:42:51.567438
+- **Investigation Timeline:**
+  - **[2026-06-10T15:42:51.567438]** (System): TRIGGERED - Alert ALT-20260610-TX1111 generated for Dewi Suharto transaction ID 1111.
+
+---
+
+## Alert ALT-20260610-TX1110 - OPEN
+- **Target Type:** TRANSACTION (ID: 1110)
+- **Customer Name:** Dewi Santoso (ID: 443)
+- **Threat Score:** 70.0%
+- **Severity Level:** LOW
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:42:46.448643
+- **Investigation Timeline:**
+  - **[2026-06-10T15:42:46.448643]** (System): TRIGGERED - Alert ALT-20260610-TX1110 generated for Dewi Santoso transaction ID 1110.
+
+---
+
+## Alert ALT-20260610-TX1106 - OPEN
+- **Target Type:** TRANSACTION (ID: 1106)
+- **Customer Name:** Rini Gunawan (ID: 789)
+- **Threat Score:** 81.2%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:42:25.897487
+- **Investigation Timeline:**
+  - **[2026-06-10T15:42:25.897487]** (System): TRIGGERED - Alert ALT-20260610-TX1106 generated for Rini Gunawan transaction ID 1106.
+
+---
+
+## Alert ALT-20260610-TX1105 - OPEN
+- **Target Type:** TRANSACTION (ID: 1105)
+- **Customer Name:** Yanto Santoso (ID: 144)
+- **Threat Score:** 96.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:42:20.742740
+- **Investigation Timeline:**
+  - **[2026-06-10T15:42:20.742740]** (System): TRIGGERED - Alert ALT-20260610-TX1105 generated for Yanto Santoso transaction ID 1105.
+
+---
+
+## Alert ALT-20260610-TX1101 - OPEN
+- **Target Type:** TRANSACTION (ID: 1101)
+- **Customer Name:** Eko Pratama (ID: 351)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_location_changed", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:42:00.236000
+- **Investigation Timeline:**
+  - **[2026-06-10T15:42:00.236000]** (System): TRIGGERED - Alert ALT-20260610-TX1101 generated for Eko Pratama transaction ID 1101.
+
+---
+
+## Alert ALT-20260610-TX1099 - OPEN
+- **Target Type:** TRANSACTION (ID: 1099)
+- **Customer Name:** Budi Suharto (ID: 692)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_duplicate_account", "flag_same_device", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:41:49.949857
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:49.949857]** (System): TRIGGERED - Alert ALT-20260610-TX1099 generated for Budi Suharto transaction ID 1099.
+
+---
+
+## Alert ALT-20260610-TX1098 - OPEN
+- **Target Type:** TRANSACTION (ID: 1098)
+- **Customer Name:** Siti Nasution (ID: 528)
+- **Threat Score:** 65.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_payment_retry", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:41:44.830893
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:44.830893]** (System): TRIGGERED - Alert ALT-20260610-TX1098 generated for Siti Nasution transaction ID 1098.
+
+---
+
+## Alert ALT-20260610-TX1096 - OPEN
+- **Target Type:** TRANSACTION (ID: 1096)
+- **Customer Name:** Joko Wijaya (ID: 723)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_same_device", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:41:34.585693
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:34.585693]** (System): TRIGGERED - Alert ALT-20260610-TX1096 generated for Joko Wijaya transaction ID 1096.
+
+---
+
+## Alert ALT-20260610-TX1095 - OPEN
+- **Target Type:** TRANSACTION (ID: 1095)
+- **Customer Name:** Sri Siregar (ID: 438)
+- **Threat Score:** 100.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_location_changed", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:41:29.446496
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:29.446496]** (System): TRIGGERED - Alert ALT-20260610-TX1095 generated for Sri Siregar transaction ID 1095.
+
+---
+
+## Alert ALT-20260610-TX1094 - OPEN
+- **Target Type:** TRANSACTION (ID: 1094)
+- **Customer Name:** Sri Pratama (ID: 675)
+- **Threat Score:** 95.6%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_location_changed", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:41:24.321978
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:24.321978]** (System): TRIGGERED - Alert ALT-20260610-TX1094 generated for Sri Pratama transaction ID 1094.
+
+---
+
+## Alert ALT-20260610-TX1092 - OPEN
+- **Target Type:** TRANSACTION (ID: 1092)
+- **Customer Name:** Sri Nasution (ID: 122)
+- **Threat Score:** 97.3%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_kks_not_valid", "flag_card_invalid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:41:14.074802
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:14.074802]** (System): TRIGGERED - Alert ALT-20260610-TX1092 generated for Sri Nasution transaction ID 1092.
+
+---
+
+## Alert ALT-20260610-TX1090 - OPEN
+- **Target Type:** TRANSACTION (ID: 1090)
+- **Customer Name:** Sri Kusuma (ID: 555)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_same_device", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:41:03.700932
+- **Investigation Timeline:**
+  - **[2026-06-10T15:41:03.700932]** (System): TRIGGERED - Alert ALT-20260610-TX1090 generated for Sri Kusuma transaction ID 1090.
+
+---
+
+## Alert ALT-20260610-TX1089 - OPEN
+- **Target Type:** TRANSACTION (ID: 1089)
+- **Customer Name:** Ika Santoso (ID: 25)
+- **Threat Score:** 55.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_high_frequency", "flag_failed_login", "flag_card_invalid", "flag_subsidy_exhausted"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:40:58.581877
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:58.581877]** (System): TRIGGERED - Alert ALT-20260610-TX1089 generated for Ika Santoso transaction ID 1089.
+
+---
+
+## Alert ALT-20260610-TX1087 - OPEN
+- **Target Type:** TRANSACTION (ID: 1087)
+- **Customer Name:** Sri Nasution (ID: 645)
+- **Threat Score:** 88.6%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_failed_login", "flag_kks_not_valid"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:40:48.327575
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:48.327575]** (System): TRIGGERED - Alert ALT-20260610-TX1087 generated for Sri Nasution transaction ID 1087.
+
+---
+
+## Alert ALT-20260610-TX1085 - OPEN
+- **Target Type:** TRANSACTION (ID: 1085)
+- **Customer Name:** Budi Kusuma (ID: 378)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_payment_retry", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:40:38.097395
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:38.097395]** (System): TRIGGERED - Alert ALT-20260610-TX1085 generated for Budi Kusuma transaction ID 1085.
+
+---
+
+## Alert ALT-20260610-TX1084 - OPEN
+- **Target Type:** TRANSACTION (ID: 1084)
+- **Customer Name:** Mega Setiawan (ID: 331)
+- **Threat Score:** 65.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:40:32.979935
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:32.979935]** (System): TRIGGERED - Alert ALT-20260610-TX1084 generated for Mega Setiawan transaction ID 1084.
+
+---
+
+## Alert ALT-20260610-TX1083 - OPEN
+- **Target Type:** TRANSACTION (ID: 1083)
+- **Customer Name:** Yanto Astuti (ID: 796)
+- **Threat Score:** 100.0%
+- **Severity Level:** LOW
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:40:27.855392
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:27.855392]** (System): TRIGGERED - Alert ALT-20260610-TX1083 generated for Yanto Astuti transaction ID 1083.
+
+---
+
+## Alert ALT-20260610-TX1080 - OPEN
+- **Target Type:** TRANSACTION (ID: 1080)
+- **Customer Name:** Ika Santoso (ID: 641)
+- **Threat Score:** 94.1%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:40:12.515492
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:12.515492]** (System): TRIGGERED - Alert ALT-20260610-TX1080 generated for Ika Santoso transaction ID 1080.
+
+---
+
+## Alert ALT-20260610-TX1079 - OPEN
+- **Target Type:** TRANSACTION (ID: 1079)
+- **Customer Name:** Sri Wijaya (ID: 354)
+- **Threat Score:** 100.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:40:07.402677
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:07.402677]** (System): TRIGGERED - Alert ALT-20260610-TX1079 generated for Sri Wijaya transaction ID 1079.
+
+---
+
+## Alert ALT-20260610-TX1078 - OPEN
+- **Target Type:** TRANSACTION (ID: 1078)
+- **Customer Name:** Rudi Astuti (ID: 326)
+- **Threat Score:** 85.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:40:02.268357
+- **Investigation Timeline:**
+  - **[2026-06-10T15:40:02.268357]** (System): TRIGGERED - Alert ALT-20260610-TX1078 generated for Rudi Astuti transaction ID 1078.
+
+---
+
+## Alert ALT-20260610-TX1076 - OPEN
+- **Target Type:** TRANSACTION (ID: 1076)
+- **Customer Name:** Andi Kusuma (ID: 4)
+- **Threat Score:** 87.8%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:51.996601
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:51.996601]** (System): TRIGGERED - Alert ALT-20260610-TX1076 generated for Andi Kusuma transaction ID 1076.
+
+---
+
+## Alert ALT-20260610-TX1075 - OPEN
+- **Target Type:** TRANSACTION (ID: 1075)
+- **Customer Name:** Mega Setiawan (ID: 374)
+- **Threat Score:** 98.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_same_device", "flag_kks_not_valid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:46.881698
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:46.881698]** (System): TRIGGERED - Alert ALT-20260610-TX1075 generated for Mega Setiawan transaction ID 1075.
+
+---
+
+## Alert ALT-20260610-TX1074 - OPEN
+- **Target Type:** TRANSACTION (ID: 1074)
+- **Customer Name:** Andi Wijaya (ID: 682)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_high_frequency", "flag_duplicate_account", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:41.765842
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:41.765842]** (System): TRIGGERED - Alert ALT-20260610-TX1074 generated for Andi Wijaya transaction ID 1074.
+
+---
+
+## Alert ALT-20260610-TX1072 - OPEN
+- **Target Type:** TRANSACTION (ID: 1072)
+- **Customer Name:** Sri Astuti (ID: 549)
+- **Threat Score:** 100.0%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_id_not_verified", "flag_kiosk"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:39:31.531240
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:31.531240]** (System): TRIGGERED - Alert ALT-20260610-TX1072 generated for Sri Astuti transaction ID 1072.
+
+---
+
+## Alert ALT-20260610-TX1070 - OPEN
+- **Target Type:** TRANSACTION (ID: 1070)
+- **Customer Name:** Rini Astuti (ID: 550)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:21.300694
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:21.300694]** (System): TRIGGERED - Alert ALT-20260610-TX1070 generated for Rini Astuti transaction ID 1070.
+
+---
+
+## Alert ALT-20260610-TX1069 - OPEN
+- **Target Type:** TRANSACTION (ID: 1069)
+- **Customer Name:** Yanto Kusuma (ID: 408)
+- **Threat Score:** 96.8%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:16.195674
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:16.195674]** (System): TRIGGERED - Alert ALT-20260610-TX1069 generated for Yanto Kusuma transaction ID 1069.
+
+---
+
+## Alert ALT-20260610-TX1068 - OPEN
+- **Target Type:** TRANSACTION (ID: 1068)
+- **Customer Name:** Agus Setiawan (ID: 190)
+- **Threat Score:** 65.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_repeated_purchase", "flag_duplicate_account", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:39:10.990213
+- **Investigation Timeline:**
+  - **[2026-06-10T15:39:10.990213]** (System): TRIGGERED - Alert ALT-20260610-TX1068 generated for Agus Setiawan transaction ID 1068.
+
+---
+
+## Alert ALT-20260610-TX1066 - OPEN
+- **Target Type:** TRANSACTION (ID: 1066)
+- **Customer Name:** Budi Kusuma (ID: 378)
+- **Threat Score:** 90.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_duplicate_account", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:38:59.937901
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:59.937901]** (System): TRIGGERED - Alert ALT-20260610-TX1066 generated for Budi Kusuma transaction ID 1066.
+
+---
+
+## Alert ALT-20260610-TX1064 - OPEN
+- **Target Type:** TRANSACTION (ID: 1064)
+- **Customer Name:** Hadi Kusuma (ID: 798)
+- **Threat Score:** 100.0%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_card_invalid"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:38:48.707749
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:48.707749]** (System): TRIGGERED - Alert ALT-20260610-TX1064 generated for Hadi Kusuma transaction ID 1064.
+
+---
+
+## Alert ALT-20260610-TX1062 - OPEN
+- **Target Type:** TRANSACTION (ID: 1062)
+- **Customer Name:** Lani Siregar (ID: 863)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:38:35.428608
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:35.428608]** (System): TRIGGERED - Alert ALT-20260610-TX1062 generated for Lani Siregar transaction ID 1062.
+
+---
+
+## Alert ALT-20260610-TX1061 - OPEN
+- **Target Type:** TRANSACTION (ID: 1061)
+- **Customer Name:** Joko Susanti (ID: 355)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_high_frequency", "flag_duplicate_account", "flag_failed_login", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:38:29.398417
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:29.398417]** (System): TRIGGERED - Alert ALT-20260610-TX1061 generated for Joko Susanti transaction ID 1061.
+
+---
+
+## Alert ALT-20260610-TX1060 - OPEN
+- **Target Type:** TRANSACTION (ID: 1060)
+- **Customer Name:** Joko Hidayat (ID: 441)
+- **Threat Score:** 97.7%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_failed_login", "flag_card_invalid"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:38:23.995824
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:23.995824]** (System): TRIGGERED - Alert ALT-20260610-TX1060 generated for Joko Hidayat transaction ID 1060.
+
+---
+
+## Alert ALT-20260610-TX1059 - OPEN
+- **Target Type:** TRANSACTION (ID: 1059)
+- **Customer Name:** Joko Susanti (ID: 62)
+- **Threat Score:** 91.9%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:38:18.687027
+- **Investigation Timeline:**
+  - **[2026-06-10T15:38:18.687027]** (System): TRIGGERED - Alert ALT-20260610-TX1059 generated for Joko Susanti transaction ID 1059.
+
+---
+
+## Alert ALT-20260610-TX1055 - OPEN
+- **Target Type:** TRANSACTION (ID: 1055)
+- **Customer Name:** Sri Hidayat (ID: 468)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_failed_login", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:37:57.487203
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:57.487203]** (System): TRIGGERED - Alert ALT-20260610-TX1055 generated for Sri Hidayat transaction ID 1055.
+
+---
+
+## Alert ALT-20260610-TX1053 - OPEN
+- **Target Type:** TRANSACTION (ID: 1053)
+- **Customer Name:** Agus Wijaya (ID: 55)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency", "flag_duplicate_account", "flag_payment_retry", "flag_kks_not_valid", "flag_card_invalid"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:37:46.762265
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:46.762265]** (System): TRIGGERED - Alert ALT-20260610-TX1053 generated for Agus Wijaya transaction ID 1053.
+
+---
+
+## Alert ALT-20260610-TX1051 - OPEN
+- **Target Type:** TRANSACTION (ID: 1051)
+- **Customer Name:** Ika Setiawan (ID: 533)
+- **Threat Score:** 93.7%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_failed_login", "flag_kks_not_valid", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:37:35.405090
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:35.405090]** (System): TRIGGERED - Alert ALT-20260610-TX1051 generated for Ika Setiawan transaction ID 1051.
+
+---
+
+## Alert ALT-20260610-TX1050 - OPEN
+- **Target Type:** TRANSACTION (ID: 1050)
+- **Customer Name:** Rini Pratama (ID: 644)
+- **Threat Score:** 88.8%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:37:28.880987
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:28.880987]** (System): TRIGGERED - Alert ALT-20260610-TX1050 generated for Rini Pratama transaction ID 1050.
+
+---
+
+## Alert ALT-20260610-TX1049 - OPEN
+- **Target Type:** TRANSACTION (ID: 1049)
+- **Customer Name:** Ika Hidayat (ID: 99)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_payment_retry", "flag_failed_login", "flag_id_not_verified", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:37:22.008734
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:22.008734]** (System): TRIGGERED - Alert ALT-20260610-TX1049 generated for Ika Hidayat transaction ID 1049.
+
+---
+
+## Alert ALT-20260610-TX1047 - OPEN
+- **Target Type:** TRANSACTION (ID: 1047)
+- **Customer Name:** Rudi Susanti (ID: 986)
+- **Threat Score:** 100.0%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_high_frequency", "flag_duplicate_account", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:37:06.066029
+- **Investigation Timeline:**
+  - **[2026-06-10T15:37:06.066029]** (System): TRIGGERED - Alert ALT-20260610-TX1047 generated for Rudi Susanti transaction ID 1047.
+
+---
+
+## Alert ALT-20260610-TX1045 - OPEN
+- **Target Type:** TRANSACTION (ID: 1045)
+- **Customer Name:** Eko Pratama (ID: 635)
+- **Threat Score:** 90.7%
+- **Severity Level:** CRITICAL
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_duplicate_account", "flag_kiosk"]`
+- **Recommended Actions:** *IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance.*
+- **Detection Timestamp:** 2026-06-10T15:36:52.846715
+- **Investigation Timeline:**
+  - **[2026-06-10T15:36:52.846715]** (System): TRIGGERED - Alert ALT-20260610-TX1045 generated for Eko Pratama transaction ID 1045.
+
+---
+
+## Alert ALT-20260610-TX1044 - OPEN
+- **Target Type:** TRANSACTION (ID: 1044)
+- **Customer Name:** Andi Wijaya (ID: 358)
+- **Threat Score:** 70.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_location_changed", "flag_payment_retry", "flag_id_not_verified", "flag_card_invalid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:36:47.426118
+- **Investigation Timeline:**
+  - **[2026-06-10T15:36:47.426118]** (System): TRIGGERED - Alert ALT-20260610-TX1044 generated for Andi Wijaya transaction ID 1044.
+
+---
+
+## Alert ALT-20260610-TX1043 - OPEN
+- **Target Type:** TRANSACTION (ID: 1043)
+- **Customer Name:** Andi Nasution (ID: 403)
+- **Threat Score:** 97.6%
+- **Severity Level:** MEDIUM
+- **Triggered Indicators:** `["flag_ip_outsider", "flag_repeated_purchase", "flag_high_frequency"]`
+- **Recommended Actions:** *Flag account for immediate review. Inspect payment retry logs.*
+- **Detection Timestamp:** 2026-06-10T15:36:42.175263
+- **Investigation Timeline:**
+  - **[2026-06-10T15:36:42.175263]** (System): TRIGGERED - Alert ALT-20260610-TX1043 generated for Andi Nasution transaction ID 1043.
+
+---
+
+## Alert ALT-20260610-TX1042 - OPEN
+- **Target Type:** TRANSACTION (ID: 1042)
+- **Customer Name:** Sri Siregar (ID: 886)
+- **Threat Score:** 60.0%
+- **Severity Level:** HIGH
+- **Triggered Indicators:** `["flag_duplicate_account", "flag_payment_retry", "flag_failed_login", "flag_kks_not_valid", "flag_kiosk"]`
+- **Recommended Actions:** *Verify identity document (NIK) and review login location history.*
+- **Detection Timestamp:** 2026-06-10T15:36:36.388053
+- **Investigation Timeline:**
+  - **[2026-06-10T15:36:36.388053]** (System): TRIGGERED - Alert ALT-20260610-TX1042 generated for Sri Siregar transaction ID 1042.
+
+---
+
 ## Alert ALT-20260610-M1001-31 - OPEN
 - **Target Type:** MEMBER (ID: 1001)
 - **Customer Name:** Eko Wijaya (ID: 1001)

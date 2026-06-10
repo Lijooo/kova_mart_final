@@ -1,0 +1,4 @@
+__pycache__/
+*.pyc
+generator.lock
+generated_transactions_log.csv

@@ -1883,7 +1883,6 @@ function handleAuditDocFilter() {
     const severityFilter = document.getElementById('filter-doc-severity').value;
     const statusFilter = document.getElementById('filter-doc-status').value;
     const ruleFilter = document.getElementById('filter-doc-rule-id').value;
-    const dateFilter = document.getElementById('filter-doc-date').value; // 'YYYY-MM-DD' or empty
 
     filteredAlertsForDoc = allAlerts.filter(alt => {
         const matchSearch = alt.alert_id.toLowerCase().includes(searchVal) ||
@@ -1896,9 +1895,7 @@ function handleAuditDocFilter() {
         const combo = findTriggeredCombination(alt);
         const matchRule = (ruleFilter === 'ALL' || (combo && combo.id === ruleFilter));
         
-        const matchDate = !dateFilter || alt.detection_timestamp.startsWith(dateFilter);
-        
-        return matchSearch && matchSeverity && matchStatus && matchRule && matchDate;
+        return matchSearch && matchSeverity && matchStatus && matchRule;
     });
 
     renderAuditDocTable(filteredAlertsForDoc);
@@ -2140,8 +2137,7 @@ function selectAuditDocAlertInTable(alertId) {
     const filterRule = document.getElementById('filter-doc-rule-id');
     if (filterRule) filterRule.value = 'ALL';
     
-    const filterDate = document.getElementById('filter-doc-date');
-    if (filterDate) filterDate.value = '';
+
     
     handleAuditDocFilter();
     

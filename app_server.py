@@ -1746,8 +1746,9 @@ def start_background_generator():
     t = threading.Thread(target=generator_loop, daemon=True)
     t.start()
 
-# Start background generator automatically on module import/load
-start_background_generator()
+# Start background generator only if explicitly enabled (prevents thread deadlocks on Gunicorn/Render startup)
+if os.environ.get("ENABLE_BACKGROUND_GENERATOR", "false").lower() == "true":
+    start_background_generator()
 
 # ─── ENTRY POINT ─────────────────────────────────────────────────────────────
 if __name__ == '__main__':

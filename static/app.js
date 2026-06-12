@@ -27,6 +27,8 @@ let lastSeenAlertId = localStorage.getItem('kovamart_last_seen_alert_id') !== nu
 // Pagination state
 let currentPage = 1;
 const rowsPerPage = 12;
+let auditDocCurrentPage = 1;
+const auditDocRowsPerPage = 12;
 
 // Sorting state
 let currentSortCol = 'customer_id';
@@ -1937,6 +1939,7 @@ function viewAllAlerts() {
 let filteredAlertsForDoc = [];
 
 function handleAuditDocFilter() {
+    auditDocCurrentPage = 1; // Reset to page 1 on filter update
     const searchInput = document.getElementById('audit-doc-search-input');
     if (!searchInput) return;
     const searchVal = searchInput.value.toLowerCase().trim();
@@ -1991,12 +1994,27 @@ function renderAuditDocTable(alertsList) {
     if (!tbody) return;
     tbody.innerHTML = '';
 
-    if (alertsList.length === 0) {
+    const totalCount = alertsList.length;
+    const startIndex = (auditDocCurrentPage - 1) * auditDocRowsPerPage;
+    const endIndex = Math.min(startIndex + auditDocRowsPerPage, totalCount);
+
+    const pageRecords = alertsList.slice(startIndex, endIndex);
+
+    if (pageRecords.length === 0) {
         tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px; color:var(--text-muted);">No matching alerts found</td></tr>';
+        
+        const infoEl = document.getElementById('audit-doc-pagination-info-text');
+        if (infoEl) infoEl.textContent = 'Showing 0 to 0 of 0 alerts';
+        
+        const prevBtn = document.getElementById('audit-doc-pagination-prev');
+        if (prevBtn) prevBtn.disabled = true;
+        
+        const nextBtn = document.getElementById('audit-doc-pagination-next');
+        if (nextBtn) nextBtn.disabled = true;
         return;
     }
 
-    alertsList.forEach(alt => {
+    pageRecords.forEach(alt => {
         const tr = document.createElement('tr');
         tr.className = 'audit-doc-row';
         tr.id = `alert-row-${alt.id}`;
@@ -2035,6 +2053,26 @@ function renderAuditDocTable(alertsList) {
 
         tbody.appendChild(tr);
     });
+
+    const infoEl = document.getElementById('audit-doc-pagination-info-text');
+    if (infoEl) {
+        infoEl.textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalCount} alerts`;
+    }
+    
+    const prevBtn = document.getElementById('audit-doc-pagination-prev');
+    if (prevBtn) {
+        prevBtn.disabled = auditDocCurrentPage === 1;
+    }
+    
+    const nextBtn = document.getElementById('audit-doc-pagination-next');
+    if (nextBtn) {
+        nextBtn.disabled = endIndex >= totalCount;
+    }
+}
+
+function changeAuditDocPage(direction) {
+    auditDocCurrentPage += direction;
+    renderAuditDocTable(filteredAlertsForDoc);
 }
 
 function toggleAlertRowDetails(id, tr) {

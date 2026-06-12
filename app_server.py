@@ -32,14 +32,18 @@ except Exception as e:
     sys.exit(1)
 
 import database
-print("[Server] Initializing database...")
+print("[Server] Checking database status...")
 try:
-    database.db_init()
-    print("[Server] Database initialized successfully!")
+    db_exists = os.path.exists(database.DB_PATH) and os.path.getsize(database.DB_PATH) > 0
+    if not db_exists:
+        print("[Server] Database file not found or empty. Initializing database...")
+        database.db_init()
+        print("[Server] Database initialized successfully!")
+    else:
+        print("[Server] Database already exists. Skipping initialization.")
 except Exception as e:
-    print("[Server] Database initialization failed:")
+    print("[Server] Database initialization warning (non-fatal):")
     traceback.print_exc()
-    sys.exit(1)
 
 from flask import Flask, jsonify, request, render_template, session
 from functools import wraps

@@ -368,21 +368,24 @@ def get_transactions():
         """)
         rows = cursor.fetchall()
         
+        # Pre-fetch all transaction audit logs in a single query to prevent N+1 performance issues
+        cursor.execute("SELECT target_id, action, note, timestamp FROM audit_logs WHERE target_type = 'transaction' ORDER BY id DESC")
+        logs_rows = cursor.fetchall()
+        logs_by_tx = {}
+        for log in logs_rows:
+            tx_id = log["target_id"]
+            if tx_id not in logs_by_tx:
+                logs_by_tx[tx_id] = []
+            logs_by_tx[tx_id].append({
+                "action": log["action"],
+                "note": log["note"],
+                "timestamp": log["timestamp"]
+            })
+        
         records = []
         for r in rows:
             rec = dict(r)
-            # Fetch audit history for this transaction
-            cursor.execute("SELECT * FROM audit_logs WHERE target_type = 'transaction' AND target_id = ? ORDER BY id DESC", (r["id"],))
-            logs = cursor.fetchall()
-            audit_history = []
-            for log in logs:
-                audit_history.append({
-                    "action": log["action"],
-                    "note": log["note"],
-                    "timestamp": log["timestamp"]
-                })
-            
-            rec["auditHistory"] = audit_history
+            rec["auditHistory"] = logs_by_tx.get(r["id"], [])
             rec["risk_pct"] = r["final_pct"] if r["final_pct"] is not None else 0.0
             rec["Initial_Subsidy"] = r["initial_subsidy"]
             rec["Subsidy_balance"] = r["subsidy_balance"]
@@ -450,20 +453,25 @@ def handle_members():
             cursor = conn.cursor()
             cursor.execute("SELECT * FROM members ORDER BY id DESC")
             rows = cursor.fetchall()
+            
+            # Pre-fetch all member audit logs in a single query to prevent N+1 performance issues
+            cursor.execute("SELECT target_id, action, note, timestamp FROM audit_logs WHERE target_type = 'member' ORDER BY id DESC")
+            logs_rows = cursor.fetchall()
+            logs_by_member = {}
+            for log in logs_rows:
+                m_id = log["target_id"]
+                if m_id not in logs_by_member:
+                    logs_by_member[m_id] = []
+                logs_by_member[m_id].append({
+                    "action": log["action"],
+                    "note": log["note"],
+                    "timestamp": log["timestamp"]
+                })
+            
             members = []
             for r in rows:
                 m = dict(r)
-                # Fetch audit history
-                cursor.execute("SELECT * FROM audit_logs WHERE target_type = 'member' AND target_id = ? ORDER BY id DESC", (r["id"],))
-                logs = cursor.fetchall()
-                audit_history = []
-                for log in logs:
-                    audit_history.append({
-                        "action": log["action"],
-                        "note": log["note"],
-                        "timestamp": log["timestamp"]
-                    })
-                m["auditHistory"] = audit_history
+                m["auditHistory"] = logs_by_member.get(r["id"], [])
                 members.append(mask_sensitive_data(m))
             conn.close()
             return jsonify({"status": "success", "members": members})
@@ -677,24 +685,27 @@ def get_alerts():
         cursor.execute("SELECT * FROM alerts ORDER BY id DESC")
         rows = cursor.fetchall()
         
+        # Pre-fetch all alert audit logs in a single query to prevent N+1 performance issues
+        cursor.execute("SELECT target_id, action, note, operator, timestamp FROM audit_logs WHERE target_type = 'alert' ORDER BY id DESC")
+        logs_rows = cursor.fetchall()
+        logs_by_alert = {}
+        for log in logs_rows:
+            a_id = log["target_id"]
+            if a_id not in logs_by_alert:
+                logs_by_alert[a_id] = []
+            logs_by_alert[a_id].append({
+                "action": log["action"],
+                "note": log["note"],
+                "operator": log["operator"],
+                "timestamp": log["timestamp"]
+            })
+        
         alerts = []
         for r in rows:
             alt = dict(r)
             alt["indicators"] = json.loads(r["fraud_indicators_triggered"])
             alt["transaction_details"] = json.loads(r["transaction_details"]) if r["transaction_details"] else None
-            
-            # Fetch audit logs timeline for this alert
-            cursor.execute("SELECT * FROM audit_logs WHERE target_type = 'alert' AND target_id = ? ORDER BY id DESC", (r["id"],))
-            logs = cursor.fetchall()
-            history = []
-            for log in logs:
-                history.append({
-                    "action": log["action"],
-                    "note": log["note"],
-                    "operator": log["operator"],
-                    "timestamp": log["timestamp"]
-                })
-            alt["auditHistory"] = history
+            alt["auditHistory"] = logs_by_alert.get(r["id"], [])
             alerts.append(alt)
             
         conn.close()

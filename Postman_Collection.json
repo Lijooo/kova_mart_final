@@ -1,0 +1,247 @@
+{
+	"info": {
+		"_postman_id": "4e72750e-b7f3-42e7-8b01-e6e788c03565",
+		"name": "Kova Mart Fraud Prevention API",
+		"description": "Integration testing endpoints for pre-transaction fraud scoring, blocking checkouts, and logging auditor feedback.",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Fraud Scoring",
+			"item": [
+				{
+					"name": "Score Transaction (LOW Risk - Approve)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 1,\n  \"initial_subsidy\": 1000000.0,\n  \"transaction_amount\": 5000.0,\n  \"subsidy_balance\": 995000.0,\n  \"hour_of_day\": 12,\n  \"num_items\": 1,\n  \"repeated_product_purchase\": 0,\n  \"same_product_transaction_count_month\": 1,\n  \"previous_transactions\": 5,\n  \"is_first_transaction\": 0,\n  \"national_id_verification\": 1,\n  \"kks_card_validation\": 1,\n  \"duplicate_account_detection\": 0,\n  \"transaction_frequency_high\": 0,\n  \"valid_card\": 1,\n  \"ip_outside_indonesia\": 0,\n  \"app_vs_kiosk\": 0,\n  \"failed_login_attempts\": 0,\n  \"payment_retry_count\": 0,\n  \"same_device_multiple_accounts\": 0,\n  \"login_location_changed\": 0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/fraud/score",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fraud",
+								"score"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Score Transaction (HIGH Risk - Block)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 2,\n  \"initial_subsidy\": 1000000.0,\n  \"transaction_amount\": 15000.0,\n  \"subsidy_balance\": 985000.0,\n  \"hour_of_day\": 3,\n  \"num_items\": 15,\n  \"repeated_product_purchase\": 1,\n  \"same_product_transaction_count_month\": 5,\n  \"previous_transactions\": 12,\n  \"is_first_transaction\": 0,\n  \"national_id_verification\": 0,\n  \"kks_card_validation\": 0,\n  \"duplicate_account_detection\": 1,\n  \"transaction_frequency_high\": 1,\n  \"valid_card\": 0,\n  \"ip_outside_indonesia\": 1,\n  \"app_vs_kiosk\": 1,\n  \"failed_login_attempts\": 3,\n  \"payment_retry_count\": 2,\n  \"same_device_multiple_accounts\": 1,\n  \"login_location_changed\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/fraud/score",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fraud",
+								"score"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Score Transaction (MEDIUM Risk - Review)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 3,\n  \"initial_subsidy\": 1000000.0,\n  \"transaction_amount\": 5000.0,\n  \"subsidy_balance\": 995000.0,\n  \"hour_of_day\": 12,\n  \"num_items\": 1,\n  \"repeated_product_purchase\": 0,\n  \"same_product_transaction_count_month\": 1,\n  \"previous_transactions\": 5,\n  \"is_first_transaction\": 0,\n  \"national_id_verification\": 0,\n  \"kks_card_validation\": 0,\n  \"duplicate_account_detection\": 0,\n  \"transaction_frequency_high\": 0,\n  \"valid_card\": 0,\n  \"ip_outside_indonesia\": 0,\n  \"app_vs_kiosk\": 0,\n  \"failed_login_attempts\": 0,\n  \"payment_retry_count\": 0,\n  \"same_device_multiple_accounts\": 0,\n  \"login_location_changed\": 0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/fraud/score",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fraud",
+								"score"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Checkout Gateway",
+			"item": [
+				{
+					"name": "Checkout (LOW Risk - Success)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 1,\n  \"initial_subsidy\": 1000000.0,\n  \"transaction_amount\": 2500.0,\n  \"hour_of_day\": 12,\n  \"num_items\": 2,\n  \"repeated_product_purchase\": 0,\n  \"same_product_transaction_count_month\": 1,\n  \"previous_transactions\": 10,\n  \"is_first_transaction\": 0,\n  \"national_id_verification\": 1,\n  \"kks_card_validation\": 1,\n  \"duplicate_account_detection\": 0,\n  \"transaction_frequency_high\": 0,\n  \"valid_card\": 1,\n  \"ip_outside_indonesia\": 0,\n  \"app_vs_kiosk\": 0,\n  \"failed_login_attempts\": 0,\n  \"payment_retry_count\": 0,\n  \"same_device_multiple_accounts\": 0,\n  \"login_location_changed\": 0\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"checkout"
+							]
+						}
+					},
+					"response": []
+				},
+				{
+					"name": "Checkout (HIGH Risk - Blocked 403)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"customer_id\": 2,\n  \"initial_subsidy\": 1000000.0,\n  \"transaction_amount\": 95000.0,\n  \"hour_of_day\": 2,\n  \"num_items\": 22,\n  \"repeated_product_purchase\": 1,\n  \"same_product_transaction_count_month\": 8,\n  \"previous_transactions\": 4,\n  \"is_first_transaction\": 0,\n  \"national_id_verification\": 0,\n  \"kks_card_validation\": 0,\n  \"duplicate_account_detection\": 1,\n  \"transaction_frequency_high\": 1,\n  \"valid_card\": 0,\n  \"ip_outside_indonesia\": 1,\n  \"app_vs_kiosk\": 1,\n  \"failed_login_attempts\": 5,\n  \"payment_retry_count\": 4,\n  \"same_device_multiple_accounts\": 1,\n  \"login_location_changed\": 1\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/checkout",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"checkout"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		},
+		{
+			"name": "Auditor Feedback Loop",
+			"item": [
+				{
+					"name": "Submit Feedback (Confirm Fraud)",
+					"request": {
+						"method": "POST",
+						"header": [
+							{
+								"key": "Content-Type",
+								"value": "application/json"
+							},
+							{
+								"key": "X-API-Key",
+								"value": "{{api_key}}"
+							}
+						],
+						"body": {
+							"mode": "raw",
+							"raw": "{\n  \"transaction_id\": \"TX-APPROVED-5997\",\n  \"model_decision\": \"BLOCK\",\n  \"auditor_decision\": \"CONFIRMED\",\n  \"confirmed_label\": \"fraud\",\n  \"notes\": \"Verified account takeover activity; multiple devices from foreign IP addresses logged.\",\n  \"reviewed_by\": \"Auditor Name\",\n  \"reviewed_at\": \"2026-06-12T12:00:00Z\"\n}"
+						},
+						"url": {
+							"raw": "{{base_url}}/api/fraud/feedback",
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"fraud",
+								"feedback"
+							]
+						}
+					},
+					"response": []
+				}
+			]
+		}
+	],
+	"event": [
+		{
+			"listen": "prerequest",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		},
+		{
+			"listen": "test",
+			"script": {
+				"type": "text/javascript",
+				"exec": [
+					""
+				]
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "base_url",
+			"value": "http://127.0.0.1:50001",
+			"type": "string"
+		},
+		{
+			"key": "api_key",
+			"value": "kova_secret_api_key_2026",
+			"type": "string"
+		}
+	]
+}

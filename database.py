@@ -121,6 +121,69 @@ def db_init():
     )
     """)
 
+    # 5. Create Fraud Feedback Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS fraud_feedback (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        transaction_id TEXT NOT NULL UNIQUE,
+        model_decision TEXT NOT NULL,
+        auditor_decision TEXT NOT NULL,
+        confirmed_label TEXT NOT NULL CHECK(confirmed_label IN ('fraud', 'legitimate', 'unknown')),
+        notes TEXT,
+        reviewed_by TEXT NOT NULL,
+        reviewed_at TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 6. Create Fraud Scoring Logs Table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS fraud_scoring_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        request_id TEXT NOT NULL UNIQUE,
+        transaction_id TEXT NOT NULL UNIQUE,
+        customer_id INTEGER NOT NULL,
+        initial_subsidy REAL NOT NULL,
+        transaction_amount REAL NOT NULL,
+        subsidy_balance REAL NOT NULL,
+        hour_of_day INTEGER NOT NULL,
+        num_items INTEGER NOT NULL,
+        repeated_product_purchase INTEGER NOT NULL,
+        same_product_transaction_count_month INTEGER NOT NULL,
+        previous_transactions INTEGER NOT NULL,
+        is_first_transaction INTEGER NOT NULL,
+        national_id_verification INTEGER NOT NULL,
+        kks_card_validation INTEGER NOT NULL,
+        duplicate_account_detection INTEGER NOT NULL,
+        transaction_frequency_high INTEGER NOT NULL,
+        valid_card INTEGER NOT NULL,
+        ip_outside_indonesia INTEGER NOT NULL,
+        app_vs_kiosk INTEGER NOT NULL,
+        failed_login_attempts INTEGER NOT NULL,
+        payment_retry_count INTEGER NOT NULL,
+        same_device_multiple_accounts INTEGER NOT NULL,
+        login_location_changed INTEGER NOT NULL,
+        rule_based_score REAL NOT NULL,
+        ai_probability_score REAL NOT NULL,
+        final_risk_score REAL NOT NULL,
+        risk_category TEXT NOT NULL,
+        decision TEXT NOT NULL,
+        allow_transaction INTEGER NOT NULL,
+        triggered_flags TEXT NOT NULL,
+        triggered_combo_rules TEXT NOT NULL,
+        highest_combo_rule TEXT,
+        recommendation TEXT,
+        timestamp TEXT NOT NULL,
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    # 7. Create Indexes for Performance
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_fraud_scoring_logs_tx_id ON fraud_scoring_logs(transaction_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_fraud_scoring_logs_req_id ON fraud_scoring_logs(request_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_alert_id ON alerts(alert_id)")
+
     conn.commit()
 
     # Check if seeding is needed

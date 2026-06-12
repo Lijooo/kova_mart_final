@@ -7,6 +7,7 @@ import random
 import threading
 import time
 import csv
+import sqlite3
 from datetime import datetime
 
 # 1. Force UTF-8 stdout encoding (Windows compatibility)
@@ -45,6 +46,57 @@ from functools import wraps
 
 def require_auth(f):
     return f
+
+# API Key Authentication Decorator
+def require_api_key(f):
+    @wraps(f)
+    def decorated(*args, **kwargs):
+        api_key = os.environ.get("KOVA_API_KEY", "kova_secret_api_key_2026")
+        provided_key = request.headers.get("X-API-Key")
+        if not provided_key:
+            auth_header = request.headers.get("Authorization")
+            if auth_header and auth_header.startswith("Bearer "):
+                provided_key = auth_header.split(" ", 1)[1].strip()
+                
+        if not provided_key or provided_key != api_key:
+            return jsonify({
+                "status": "error",
+                "message": "Unauthorized: Invalid or missing API key."
+            }), 401
+        return f(*args, **kwargs)
+    return decorated
+
+# In-Memory Rate Limiter
+rate_limit_store = {}
+rate_limit_lock = threading.Lock()
+
+def check_rate_limit(ip_address, limit=60, window=60):
+    now = time.time()
+    with rate_limit_lock:
+        timestamps = rate_limit_store.get(ip_address, [])
+        timestamps = [t for t in timestamps if now - t < window]
+        if len(timestamps) >= limit:
+            rate_limit_store[ip_address] = timestamps
+            return False
+        timestamps.append(now)
+        rate_limit_store[ip_address] = timestamps
+        return True
+
+def rate_limit(limit=60, window=60):
+    def decorator(f):
+        @wraps(f)
+        def decorated(*args, **kwargs):
+            ip = request.remote_addr
+            if request.headers.getlist("X-Forwarded-For"):
+                ip = request.headers.getlist("X-Forwarded-For")[0]
+            if not check_rate_limit(ip, limit, window):
+                return jsonify({
+                    "status": "error",
+                    "message": "Too Many Requests: Rate limit exceeded."
+                }), 429
+            return f(*args, **kwargs)
+        return decorated
+    return decorator
 
 def clean_numpy(val):
     if isinstance(val, (np.integer, np.int64, np.int32)):
@@ -95,6 +147,18 @@ def add_cors(response):
     response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
     response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS'
     return response
+
+# Limit request payload size to 1MB
+@app.before_request
+def limit_payload_size():
+    if request.method in ['POST', 'PUT']:
+        max_size = 1 * 1024 * 1024  # 1MB
+        content_length = request.content_length
+        if content_length and content_length > max_size:
+            return jsonify({
+                "status": "error",
+                "message": "Payload Too Large: Request body exceeds 1MB limit."
+            }), 413
 
 # ─── PAGES ───────────────────────────────────────────────────────────────────
 @app.route('/')
@@ -1061,7 +1125,580 @@ def analyze_tx():
         return jsonify({"status": "success", "result": clean_result})
     except Exception as e:
         traceback.print_exc()
-        return jsonify({"status": "error", "message": str(e)}), 500
+        return jsonify({"status": "error", "message": "An internal server error occurred."}), 500
+
+# ─── PRODUCTION FRAUD ENGINE ENDPOINTS ───────────────────────────────────────
+
+FLAG_MAP_TO_API = {
+    "flag_ip_outsider": "ip_outside_indonesia",
+    "flag_repeated_purchase": "repeated_product_purchase",
+    "flag_high_frequency": "transaction_frequency_high",
+    "flag_duplicate_account": "duplicate_account_detection",
+    "flag_same_device": "same_device_multiple_accounts",
+    "flag_location_changed": "login_location_changed",
+    "flag_same_product_high": "same_product_transaction_count_month",
+    "flag_payment_retry": "payment_retry_count",
+    "flag_failed_login": "failed_login_attempts",
+    "flag_id_not_verified": "national_id_verification",
+    "flag_kks_not_valid": "kks_card_validation",
+    "flag_card_invalid": "valid_card",
+    "flag_subsidy_exhausted": "subsidy_exhausted",
+    "flag_kiosk": "app_vs_kiosk"
+}
+
+def validate_and_score_transaction_payload(data):
+    # binary fields (0 or 1)
+    binary_fields = [
+        "is_first_transaction", "national_id_verification", "kks_card_validation", 
+        "duplicate_account_detection", "transaction_frequency_high", "valid_card", 
+        "ip_outside_indonesia", "app_vs_kiosk", "same_device_multiple_accounts", 
+        "login_location_changed"
+    ]
+    
+    # non-negative integer fields
+    integer_fields = [
+        "customer_id", "hour_of_day", "num_items", "repeated_product_purchase", 
+        "same_product_transaction_count_month", "previous_transactions", 
+        "failed_login_attempts", "payment_retry_count"
+    ]
+    
+    # float/int fields (non-negative)
+    amount_fields = ["initial_subsidy", "transaction_amount"]
+    
+    # Verify all required fields exist (except optional subsidy_balance)
+    for field in binary_fields + integer_fields + amount_fields:
+        if field not in data:
+            raise ValueError(f"Missing required field: {field}")
+            
+    # Validate binary fields
+    for field in binary_fields:
+        val = data[field]
+        if not isinstance(val, int) or isinstance(val, bool) or val not in [0, 1]:
+            raise ValueError(f"Invalid value for binary field '{field}': must be 0 or 1")
+            
+    # Validate integer fields
+    for field in integer_fields:
+        val = data[field]
+        if not isinstance(val, int) or isinstance(val, bool) or val < 0:
+            raise ValueError(f"Invalid value for integer field '{field}': must be a non-negative integer")
+            
+    # Validate hour_of_day range
+    if data["hour_of_day"] > 23:
+        raise ValueError("Invalid value for 'hour_of_day': must be between 0 and 23")
+        
+    # Validate amount fields
+    for field in amount_fields:
+        val = data[field]
+        if not isinstance(val, (int, float)) or isinstance(val, bool) or val < 0:
+            raise ValueError(f"Invalid value for field '{field}': must be a non-negative number")
+            
+    # Handle subsidy_balance
+    if "subsidy_balance" in data and data["subsidy_balance"] is not None:
+        sub_bal = data["subsidy_balance"]
+        if not isinstance(sub_bal, (int, float)) or isinstance(sub_bal, bool) or sub_bal < 0:
+            raise ValueError("Invalid value for field 'subsidy_balance': must be a non-negative number")
+    else:
+        sub_bal = round(float(data["initial_subsidy"]) - float(data["transaction_amount"]), 2)
+        
+    return sub_bal
+
+def save_scoring_log(request_id, transaction_id, data, sub_bal, res, score, risk_category, decision, allow_transaction, triggered_flags, triggered_combo_rules, highest_combo, recommendation, timestamp):
+    conn = database.get_db_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO fraud_scoring_logs (
+                request_id, transaction_id, customer_id, initial_subsidy, transaction_amount, subsidy_balance,
+                hour_of_day, num_items, repeated_product_purchase, same_product_transaction_count_month,
+                previous_transactions, is_first_transaction, national_id_verification, kks_card_validation,
+                duplicate_account_detection, transaction_frequency_high, valid_card, ip_outside_indonesia,
+                app_vs_kiosk, failed_login_attempts, payment_retry_count, same_device_multiple_accounts,
+                login_location_changed, rule_based_score, ai_probability_score, final_risk_score,
+                risk_category, decision, allow_transaction, triggered_flags, triggered_combo_rules,
+                highest_combo_rule, recommendation, timestamp
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            request_id, transaction_id, int(data["customer_id"]), float(data["initial_subsidy"]), float(data["transaction_amount"]), float(sub_bal),
+            int(data["hour_of_day"]), int(data["num_items"]), int(data["repeated_product_purchase"]), int(data["same_product_transaction_count_month"]),
+            int(data["previous_transactions"]), int(data["is_first_transaction"]), int(data["national_id_verification"]), int(data["kks_card_validation"]),
+            int(data["duplicate_account_detection"]), int(data["transaction_frequency_high"]), int(data["valid_card"]), int(data["ip_outside_indonesia"]),
+            int(data["app_vs_kiosk"]), int(data["failed_login_attempts"]), int(data["payment_retry_count"]), int(data["same_device_multiple_accounts"]),
+            int(data["login_location_changed"]), float(res["rule_based_pct"]), float(res["ai_prob"]), float(score),
+            risk_category, decision, 1 if allow_transaction else 0, json.dumps(triggered_flags), json.dumps(triggered_combo_rules),
+            highest_combo, recommendation, timestamp
+        ))
+        conn.commit()
+    except Exception as e:
+        print(f"[Fraud Logger] Database write failed: {e}")
+        conn.rollback()
+    finally:
+        conn.close()
+
+@app.route('/api/fraud/score', methods=['POST'])
+@require_api_key
+@rate_limit(limit=60, window=60)
+def post_fraud_score():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload"}), 400
+            
+        try:
+            sub_bal = validate_and_score_transaction_payload(data)
+        except ValueError as val_err:
+            return jsonify({"status": "error", "message": str(val_err)}), 400
+            
+        # Map fields to scoring format
+        t_mapped = {
+            "Initial_Subsidy": float(data["initial_subsidy"]),
+            "transaction_amount": float(data["transaction_amount"]),
+            "Subsidy_balance": float(sub_bal),
+            "hour_of_day": int(data["hour_of_day"]),
+            "num_items": int(data["num_items"]),
+            "repeated_product_purchase(>10)": int(data["repeated_product_purchase"]),
+            "same_product_transcation_count_month": int(data["same_product_transaction_count_month"]),
+            "prev_transactions": int(data["previous_transactions"]),
+            "is_first_transaction": int(data["is_first_transaction"]),
+            "National_ID_verification": int(data["national_id_verification"]),
+            "KKS_card_validation": int(data["kks_card_validation"]),
+            "Duplicate_account_detection": int(data["duplicate_account_detection"]),
+            "Transaction frequency (>3 per hour)": int(data["transaction_frequency_high"]),
+            "valid_card": int(data["valid_card"]),
+            "IP address (outside Indonesia )": int(data["ip_outside_indonesia"]),
+            "app(0) vs kiosk(1)transaction": int(data["app_vs_kiosk"]),
+            "failed_login_attempts": int(data["failed_login_attempts"]),
+            "payment_retry_count": int(data["payment_retry_count"]),
+            "same_device_multiple_accounts": int(data["same_device_multiple_accounts"]),
+            "login_location_changed": int(data["login_location_changed"])
+        }
+        
+        # Invoke scoring logic
+        res = final.score_transaction(t_mapped)
+        score = float(res["final_pct"])
+        
+        # Determine risk and decision
+        if score < 40:
+            risk_category = "LOW"
+            decision = "APPROVE"
+            allow_transaction = True
+        elif score < 55:
+            risk_category = "MEDIUM"
+            decision = "REVIEW"
+            allow_transaction = False
+        elif score < 80:
+            risk_category = "HIGH"
+            decision = "BLOCK"
+            allow_transaction = False
+        else:
+            risk_category = "CRITICAL"
+            decision = "BLOCK"
+            allow_transaction = False
+            
+        request_id = f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+        transaction_id = f"TX-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+        
+        triggered_flags = [FLAG_MAP_TO_API.get(k, k) for k, v in res["flags"].items() if v == 1]
+        triggered_combo_rules = [c["combo_id"] for c in res["triggered_combos"]]
+        highest_combo = res["highest_combo"]["combo_id"] if res["highest_combo"] else None
+        
+        # Recommendation
+        recommendation = "Allow transaction."
+        if decision == "BLOCK":
+            if risk_category == "CRITICAL":
+                recommendation = "Block the transaction and investigate the account."
+            else:
+                recommendation = "Verify identity document (NIK) and review login location history."
+        elif decision == "REVIEW":
+            recommendation = "Flag account for immediate review. Inspect payment retry logs."
+            
+        timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+        
+        # Save to logs
+        save_scoring_log(
+            request_id, transaction_id, data, sub_bal, res, score,
+            risk_category, decision, allow_transaction, triggered_flags,
+            triggered_combo_rules, highest_combo, recommendation, timestamp
+        )
+        
+        print(f"[Fraud API] [SCORE] IP: {request.remote_addr} - Req: {request_id} - Score: {score}% - Decision: {decision}")
+        
+        return jsonify({
+            "status": "success",
+            "request_id": request_id,
+            "transaction_id": transaction_id,
+            "rule_based_score": float(res["rule_based_pct"]),
+            "ai_probability_score": float(res["ai_prob"]),
+            "final_risk_score": score,
+            "risk_category": risk_category,
+            "decision": decision,
+            "allow_transaction": allow_transaction,
+            "triggered_flags": triggered_flags,
+            "triggered_combo_rules": triggered_combo_rules,
+            "highest_combo_rule": highest_combo,
+            "recommendation": recommendation,
+            "timestamp": timestamp
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": "An internal server error occurred."}), 500
+
+@app.route('/api/checkout', methods=['POST'])
+@require_api_key
+@rate_limit(limit=60, window=60)
+def post_checkout():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload"}), 400
+            
+        # 1. Run fraud check
+        try:
+            sub_bal = validate_and_score_transaction_payload(data)
+            
+            # Map fields to scoring format
+            t_mapped = {
+                "Initial_Subsidy": float(data["initial_subsidy"]),
+                "transaction_amount": float(data["transaction_amount"]),
+                "Subsidy_balance": float(sub_bal),
+                "hour_of_day": int(data["hour_of_day"]),
+                "num_items": int(data["num_items"]),
+                "repeated_product_purchase(>10)": int(data["repeated_product_purchase"]),
+                "same_product_transcation_count_month": int(data["same_product_transaction_count_month"]),
+                "prev_transactions": int(data["previous_transactions"]),
+                "is_first_transaction": int(data["is_first_transaction"]),
+                "National_ID_verification": int(data["national_id_verification"]),
+                "KKS_card_validation": int(data["kks_card_validation"]),
+                "Duplicate_account_detection": int(data["duplicate_account_detection"]),
+                "Transaction frequency (>3 per hour)": int(data["transaction_frequency_high"]),
+                "valid_card": int(data["valid_card"]),
+                "IP address (outside Indonesia )": int(data["ip_outside_indonesia"]),
+                "app(0) vs kiosk(1)transaction": int(data["app_vs_kiosk"]),
+                "failed_login_attempts": int(data["failed_login_attempts"]),
+                "payment_retry_count": int(data["payment_retry_count"]),
+                "same_device_multiple_accounts": int(data["same_device_multiple_accounts"]),
+                "login_location_changed": int(data["login_location_changed"])
+            }
+            
+            # Score
+            res = final.score_transaction(t_mapped)
+            score = float(res["final_pct"])
+            
+            # Determine risk and decision
+            if score < 40:
+                risk_category = "LOW"
+                decision = "APPROVE"
+                allow_transaction = True
+            elif score < 55:
+                risk_category = "MEDIUM"
+                decision = "REVIEW"
+                allow_transaction = False
+            elif score < 80:
+                risk_category = "HIGH"
+                decision = "BLOCK"
+                allow_transaction = False
+            else:
+                risk_category = "CRITICAL"
+                decision = "BLOCK"
+                allow_transaction = False
+                
+            request_id = f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+            transaction_id = f"TX-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+            
+            triggered_flags = [FLAG_MAP_TO_API.get(k, k) for k, v in res["flags"].items() if v == 1]
+            triggered_combo_rules = [c["combo_id"] for c in res["triggered_combos"]]
+            highest_combo = res["highest_combo"]["combo_id"] if res["highest_combo"] else None
+            
+            recommendation = "Allow transaction."
+            if decision == "BLOCK":
+                if risk_category == "CRITICAL":
+                    recommendation = "Block the transaction and investigate the account."
+                else:
+                    recommendation = "Verify identity document (NIK) and review login location history."
+            elif decision == "REVIEW":
+                recommendation = "Flag account for immediate review. Inspect payment retry logs."
+                
+            timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            # Log scoring result
+            save_scoring_log(
+                request_id, transaction_id, data, sub_bal, res, score,
+                risk_category, decision, allow_transaction, triggered_flags,
+                triggered_combo_rules, highest_combo, recommendation, timestamp
+            )
+            
+        except Exception as e_score:
+            print(f"[Checkout Fraud Guard] Scoring failed: {e_score}")
+            # Fail closed to REVIEW
+            sub_bal = round(float(data.get("initial_subsidy", 0)) - float(data.get("transaction_amount", 0)), 2)
+            score = 50.0
+            risk_category = "MEDIUM"
+            decision = "REVIEW"
+            allow_transaction = False
+            triggered_flags = []
+            triggered_combo_rules = []
+            highest_combo = None
+            recommendation = "System error/timeout during fraud scoring. Holding for manual review."
+            request_id = f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+            transaction_id = f"TX-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
+            timestamp = datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ')
+            
+            res = {
+                "rule_based_pct": 50.0,
+                "ai_prob": 0.5,
+                "verdict": "TIMEOUT / SCORING ENGINE FAULT"
+            }
+            
+        # 2. Check Decision
+        if decision == "BLOCK" or decision == "REVIEW":
+            # Log attempted (blocked/review) transaction
+            status_val = "blocked" if decision == "BLOCK" else "review"
+            conn = database.get_db_connection()
+            cursor = conn.cursor()
+            try:
+                t_mapped_log = dict(t_mapped) if 't_mapped' in locals() else {}
+                t_mapped_log["Name/customer_id"] = int(data["customer_id"])
+                
+                # Fetch current balance (without deducting)
+                customer_id = int(data["customer_id"])
+                cursor.execute("""
+                    SELECT subsidy_balance FROM transactions 
+                    WHERE customer_id = ? AND status = 'approved' 
+                    ORDER BY id DESC LIMIT 1
+                """, (customer_id,))
+                last_tx = cursor.fetchone()
+                current_balance = float(last_tx["subsidy_balance"]) if last_tx else float(data["initial_subsidy"])
+                
+                # Insert attempted transaction
+                cursor.execute("""
+                    INSERT INTO transactions (
+                        customer_id, initial_subsidy, transaction_amount, subsidy_balance, hour_of_day, num_items,
+                        repeated_product_purchase, same_product_transaction_count_month, prev_transactions,
+                        is_first_transaction, national_id_verification, kks_card_validation, duplicate_account_detection,
+                        transaction_frequency_high, valid_card, ip_outside_indonesia, app_vs_kiosk, failed_login_attempts,
+                        payment_retry_count, same_device_multiple_accounts, login_location_changed, status
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (
+                    customer_id, float(data["initial_subsidy"]), float(data["transaction_amount"]), current_balance,
+                    int(data["hour_of_day"]), int(data["num_items"]), int(data["repeated_product_purchase"]), int(data["same_product_transaction_count_month"]),
+                    int(data["previous_transactions"]), int(data["is_first_transaction"]), int(data["national_id_verification"]), int(data["kks_card_validation"]),
+                    int(data["duplicate_account_detection"]), int(data["transaction_frequency_high"]), int(data["valid_card"]), int(data["ip_outside_indonesia"]),
+                    int(data["app_vs_kiosk"]), int(data["failed_login_attempts"]), int(data["payment_retry_count"]), int(data["same_device_multiple_accounts"]),
+                    int(data["login_location_changed"]), status_val
+                ))
+                db_tx_id = cursor.lastrowid
+                
+                # Save Risk Score
+                cursor.execute("""
+                    INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
+                    VALUES ('transaction', ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (db_tx_id, res["rule_based_pct"], res["ai_prob"], score,
+                      risk_category, res["verdict"], json.dumps(triggered_flags),
+                      json.dumps(triggered_combo_rules)))
+                      
+                # Log Audit Entry
+                cursor.execute("""
+                    INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                    VALUES ('transaction', ?, ?, ?, 'System', ?)
+                """, (db_tx_id, status_val, f"Attempted transaction {decision}ed. Status: {status_val.upper()}.", timestamp))
+                
+                # Generate Alerts for HIGH and CRITICAL (score >= 55)
+                if score >= 55:
+                    cursor.execute("SELECT name FROM members WHERE id = ?", (customer_id,))
+                    member_row = cursor.fetchone()
+                    member_name = member_row["name"] if member_row else f"Customer {customer_id}"
+                    
+                    alert_id = f"ALT-{datetime.utcnow().strftime('%Y%m%d')}-TX{db_tx_id:04d}"
+                    
+                    cursor.execute("""
+                        INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
+                        VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?)
+                    """, (alert_id, db_tx_id, member_name, customer_id, score, json.dumps(triggered_flags), json.dumps(data), timestamp, risk_category, recommendation))
+                    alert_db_id = cursor.lastrowid
+                    
+                    cursor.execute("""
+                        INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                        VALUES ('alert', ?, 'triggered', ?, 'System', ?)
+                    """, (alert_db_id, f"Alert {alert_id} generated for {member_name} attempted transaction ID {db_tx_id}.", timestamp))
+                    
+                    # Save to CSV log file
+                    save_to_csv_log(t_mapped_log, score, risk_category, res["verdict"], alert_id)
+                    
+                conn.commit()
+            except Exception as e_log:
+                conn.rollback()
+                print(f"[Checkout] Failed to log blocked/review transaction: {e_log}")
+            finally:
+                conn.close()
+                database.sync_all_documentation()
+                
+            return jsonify({
+                "status": "blocked",
+                "message": "This purchase could not be completed because additional verification is required. Please contact support."
+            }), 403
+            
+        # 3. Decision is APPROVE: Process in SQLite Transaction
+        conn = database.get_db_connection()
+        conn.isolation_level = None  # Manual transactions
+        cursor = conn.cursor()
+        try:
+            cursor.execute("BEGIN TRANSACTION")
+            
+            customer_id = int(data["customer_id"])
+            cursor.execute("SELECT name, verification_status FROM members WHERE id = ?", (customer_id,))
+            member = cursor.fetchone()
+            if not member:
+                raise ValueError(f"Member ID {customer_id} does not exist.")
+                
+            if member["verification_status"] in ["Flagged", "Blocked"]:
+                raise ValueError("Member account is restricted or flagged.")
+                
+            # Get latest balance
+            cursor.execute("""
+                SELECT subsidy_balance FROM transactions 
+                WHERE customer_id = ? AND status = 'approved' 
+                ORDER BY id DESC LIMIT 1
+            """, (customer_id,))
+            last_tx = cursor.fetchone()
+            if last_tx:
+                current_balance = float(last_tx["subsidy_balance"])
+            else:
+                current_balance = float(data["initial_subsidy"])
+                
+            tx_amount = float(data["transaction_amount"])
+            if current_balance < tx_amount:
+                raise ValueError(f"Insufficient subsidy balance: current is {current_balance}, required is {tx_amount}")
+                
+            new_balance = round(current_balance - tx_amount, 2)
+            
+            # Insert approved transaction
+            cursor.execute("""
+                INSERT INTO transactions (
+                    customer_id, initial_subsidy, transaction_amount, subsidy_balance, hour_of_day, num_items,
+                    repeated_product_purchase, same_product_transaction_count_month, prev_transactions,
+                    is_first_transaction, national_id_verification, kks_card_validation, duplicate_account_detection,
+                    transaction_frequency_high, valid_card, ip_outside_indonesia, app_vs_kiosk, failed_login_attempts,
+                    payment_retry_count, same_device_multiple_accounts, login_location_changed, status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'approved')
+            """, (
+                customer_id, float(data["initial_subsidy"]), tx_amount, new_balance,
+                int(data["hour_of_day"]), int(data["num_items"]), int(data["repeated_product_purchase"]), int(data["same_product_transaction_count_month"]),
+                int(data["previous_transactions"]), int(data["is_first_transaction"]), int(data["national_id_verification"]), int(data["kks_card_validation"]),
+                int(data["duplicate_account_detection"]), int(data["transaction_frequency_high"]), int(data["valid_card"]), int(data["ip_outside_indonesia"]),
+                int(data["app_vs_kiosk"]), int(data["failed_login_attempts"]), int(data["payment_retry_count"]), int(data["same_device_multiple_accounts"]),
+                int(data["login_location_changed"])
+            ))
+            db_tx_id = cursor.lastrowid
+            
+            # Save Risk Score
+            cursor.execute("""
+                INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
+                VALUES ('transaction', ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (db_tx_id, res["rule_based_pct"], res["ai_prob"], score,
+                  risk_category, res["verdict"], json.dumps(triggered_flags),
+                  json.dumps(triggered_combo_rules)))
+                  
+            # Log Audit Entry
+            cursor.execute("""
+                INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                VALUES ('transaction', ?, 'completed', ?, 'System', ?)
+            """, (db_tx_id, f"Approved transaction checkout. New subsidy balance: {new_balance}.", timestamp))
+            
+            cursor.execute("COMMIT")
+            print(f"[Checkout] Approved checkout completed successfully for customer {customer_id}, transaction: {db_tx_id}")
+            
+        except Exception as e_commit:
+            cursor.execute("ROLLBACK")
+            print(f"[Checkout] Transaction rollback due to error: {e_commit}")
+            return jsonify({"status": "error", "message": f"Checkout processing failed: {str(e_commit)}"}), 400
+        finally:
+            conn.close()
+            database.sync_all_documentation()
+            
+        return jsonify({
+            "status": "success",
+            "message": "Checkout completed successfully.",
+            "transaction_id": f"TX-APPROVED-{db_tx_id}",
+            "remaining_subsidy": new_balance
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": "An internal server error occurred."}), 500
+
+@app.route('/api/fraud/feedback', methods=['POST'])
+@require_api_key
+@rate_limit(limit=60, window=60)
+def post_fraud_feedback():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "Missing request payload"}), 400
+            
+        required_fields = ["transaction_id", "model_decision", "auditor_decision", "confirmed_label", "notes", "reviewed_by", "reviewed_at"]
+        for field in required_fields:
+            if field not in data:
+                return jsonify({"status": "error", "message": f"Missing required field: {field}"}), 400
+                
+        confirmed_label = data["confirmed_label"]
+        if confirmed_label not in ['fraud', 'legitimate', 'unknown']:
+            return jsonify({"status": "error", "message": "Invalid confirmed_label: must be 'fraud', 'legitimate', or 'unknown'"}), 400
+            
+        # Write to Database
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO fraud_feedback (
+                    transaction_id, model_decision, auditor_decision, confirmed_label, notes, reviewed_by, reviewed_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, (
+                data["transaction_id"], data["model_decision"], data["auditor_decision"],
+                confirmed_label, data["notes"], data["reviewed_by"], data["reviewed_at"]
+            ))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            conn.rollback()
+            return jsonify({"status": "error", "message": f"Feedback for transaction_id '{data['transaction_id']}' already exists."}), 400
+        except Exception as e:
+            conn.rollback()
+            print(f"[Feedback API] Database error: {e}")
+            return jsonify({"status": "error", "message": "An internal database error occurred."}), 500
+        finally:
+            conn.close()
+            
+        # Append to Retraining CSV
+        retrain_csv_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "retraining_feedback_dataset.csv")
+        file_exists = os.path.exists(retrain_csv_path)
+        headers = ["timestamp", "transaction_id", "model_decision", "auditor_decision", "confirmed_label", "notes", "reviewed_by", "reviewed_at"]
+        
+        row = {
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "transaction_id": data["transaction_id"],
+            "model_decision": data["model_decision"],
+            "auditor_decision": data["auditor_decision"],
+            "confirmed_label": confirmed_label,
+            "notes": data["notes"],
+            "reviewed_by": data["reviewed_by"],
+            "reviewed_at": data["reviewed_at"]
+        }
+        
+        try:
+            with open(retrain_csv_path, mode="a", newline="", encoding="utf-8") as f:
+                writer = csv.DictWriter(f, fieldnames=headers)
+                if not file_exists:
+                    writer.writeheader()
+                writer.writerow(row)
+        except Exception as e:
+            print(f"[Feedback API] CSV append error: {e}")
+            
+        print(f"[Fraud API] [FEEDBACK] Transaction: {data['transaction_id']} - Auditor Decision: {data['auditor_decision']} ({confirmed_label})")
+        
+        return jsonify({
+            "status": "success",
+            "message": "Feedback successfully recorded."
+        }), 200
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": "An internal server error occurred."}), 500
 
 # ─── BACKGROUND TRANSACTION GENERATOR ──────────────────────────────────────────
 LOCK_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "generator.lock")

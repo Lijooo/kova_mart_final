@@ -1,6 +1,7 @@
 import sqlite3
 import os
 import json
+import threading
 from datetime import datetime
 
 DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kovamart.db")
@@ -183,6 +184,7 @@ def db_init():
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_fraud_scoring_logs_req_id ON fraud_scoring_logs(request_id)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)")
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_alert_id ON alerts(alert_id)")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_type, target_id)")
 
     conn.commit()
 
@@ -400,74 +402,106 @@ def seed_from_csv(conn):
     sync_all_documentation()
     print("[DB] Seeding complete! Documentation generated.")
 
+_sync_lock = threading.Lock()
+
 def sync_all_documentation():
+    """Starts the database documentation sync in a background thread to prevent blocking request handlers."""
+    thread = threading.Thread(target=_sync_all_documentation_sync, daemon=True)
+    thread.start()
+
+def _sync_all_documentation_sync():
     """Reads database and generates synchronized audit documentation."""
-    if not os.path.exists(DOCS_DIR):
-        os.makedirs(DOCS_DIR)
+    # Prevent concurrent sync processes from corrupting files
+    if not _sync_lock.acquire(blocking=False):
+        return
+    conn = None
+    try:
+        if not os.path.exists(DOCS_DIR):
+            os.makedirs(DOCS_DIR)
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-    # 1. Sync registration_history.md
-    cursor.execute("SELECT * FROM members ORDER BY id DESC")
-    members = cursor.fetchall()
-    reg_history_path = os.path.join(DOCS_DIR, "registration_history.md")
-    
-    with open(reg_history_path, "w", encoding="utf-8") as f:
-        f.write("# Kova Mart - Member Registration History\n\n")
-        f.write("This log maintains a complete history of all registered members and their validation status.\n\n")
-        f.write("| ID | Name | NIK | Phone Number | KKS Card Number | Registration Date | Status | Device | IP Address |\n")
-        f.write("|----|------|-----|--------------|-----------------|-------------------|--------|--------|------------|\n")
-        for m in members:
-            # truncate device info for markdown readability
-            dev = m["device_info"]
-            if len(dev) > 40:
-                dev = dev[:37] + "..."
-            f.write(f"| #{m['id']} | {m['name']} | {m['nik']} | {m['phone']} | {m['kks_card']} | {m['registration_date']} | **{m['verification_status']}** | {dev} | {m['ip_address']} |\n")
+        # 1. Sync registration_history.md
+        cursor.execute("SELECT * FROM members ORDER BY id DESC")
+        members = cursor.fetchall()
+        reg_history_path = os.path.join(DOCS_DIR, "registration_history.md")
+        
+        with open(reg_history_path, "w", encoding="utf-8") as f:
+            f.write("# Kova Mart - Member Registration History\n\n")
+            f.write("This log maintains a complete history of all registered members and their validation status.\n\n")
+            f.write("| ID | Name | NIK | Phone Number | KKS Card Number | Registration Date | Status | Device | IP Address |\n")
+            f.write("|----|------|-----|--------------|-----------------|-------------------|--------|--------|------------|\n")
+            for m in members:
+                # truncate device info for markdown readability
+                dev = m["device_info"]
+                if len(dev) > 40:
+                    dev = dev[:37] + "..."
+                f.write(f"| #{m['id']} | {m['name']} | {m['nik']} | {m['phone']} | {m['kks_card']} | {m['registration_date']} | **{m['verification_status']}** | {dev} | {m['ip_address']} |\n")
 
-    # 2. Sync audit_logs.md
-    cursor.execute("SELECT * FROM audit_logs ORDER BY id DESC")
-    logs = cursor.fetchall()
-    audit_logs_path = os.path.join(DOCS_DIR, "audit_logs.md")
-    
-    with open(audit_logs_path, "w", encoding="utf-8") as f:
-        f.write("# Kova Mart - System Audit Trail\n\n")
-        f.write("A complete log of system initializations, checks, decisions, and manual auditor reviews.\n\n")
-        f.write("| Log ID | Target | Target ID | Action | Notes | Auditor | Timestamp |\n")
-        f.write("|--------|--------|-----------|--------|-------|---------|-----------|\n")
-        for log in logs:
-            f.write(f"| #{log['id']} | {log['target_type'].upper()} | {log['target_id']} | **{log['action'].upper()}** | {log['note']} | {log['operator']} | {log['timestamp']} |\n")
+        # 2. Sync audit_logs.md
+        cursor.execute("SELECT * FROM audit_logs ORDER BY id DESC")
+        logs = cursor.fetchall()
+        audit_logs_path = os.path.join(DOCS_DIR, "audit_logs.md")
+        
+        with open(audit_logs_path, "w", encoding="utf-8") as f:
+            f.write("# Kova Mart - System Audit Trail\n\n")
+            f.write("A complete log of system initializations, checks, decisions, and manual auditor reviews.\n\n")
+            f.write("| Log ID | Target | Target ID | Action | Notes | Auditor | Timestamp |\n")
+            f.write("|--------|--------|-----------|--------|-------|---------|-----------|\n")
+            for log in logs:
+                f.write(f"| #{log['id']} | {log['target_type'].upper()} | {log['target_id']} | **{log['action'].upper()}** | {log['note']} | {log['operator']} | {log['timestamp']} |\n")
 
-    # 3. Sync fraud_investigation_history.md
-    cursor.execute("SELECT * FROM alerts ORDER BY id DESC")
-    alerts = cursor.fetchall()
-    investigation_path = os.path.join(DOCS_DIR, "fraud_investigation_history.md")
-    
-    with open(investigation_path, "w", encoding="utf-8") as f:
-        f.write("# Kova Mart - Fraud Investigation & Alerts History\n\n")
-        f.write("Official record of all generated security alerts, threat analyses, and investigation outcomes.\n\n")
-        for alt in alerts:
-            f.write(f"## Alert {alt['alert_id']} - {alt['status'].upper()}\n")
-            f.write(f"- **Target Type:** {alt['target_type'].upper()} (ID: {alt['target_id']})\n")
-            f.write(f"- **Customer Name:** {alt['customer_name']} (ID: {alt['customer_id']})\n")
-            f.write(f"- **Threat Score:** {alt['risk_score']}%\n")
-            f.write(f"- **Severity Level:** {alt['severity_level']}\n")
-            f.write(f"- **Triggered Indicators:** `{alt['fraud_indicators_triggered']}`\n")
-            f.write(f"- **Recommended Actions:** *{alt['recommended_action']}*\n")
-            f.write(f"- **Detection Timestamp:** {alt['detection_timestamp']}\n")
+        # 3. Sync fraud_investigation_history.md
+        cursor.execute("SELECT * FROM alerts ORDER BY id DESC")
+        alerts = cursor.fetchall()
+        
+        # Pre-fetch all alert audit logs in a single query to eliminate N+1 queries
+        cursor.execute("SELECT target_id, timestamp, operator, action, note FROM audit_logs WHERE target_type = 'alert' ORDER BY id ASC")
+        logs_rows = cursor.fetchall()
+        logs_by_alert = {}
+        for log in logs_rows:
+            a_id = log["target_id"]
+            if a_id not in logs_by_alert:
+                logs_by_alert[a_id] = []
+            logs_by_alert[a_id].append(log)
             
-            # Fetch investigation notes from audit logs for this alert
-            cursor.execute("SELECT * FROM audit_logs WHERE target_type = 'alert' AND target_id = ? ORDER BY id ASC", (alt['id'],))
-            notes = cursor.fetchall()
-            if notes:
-                f.write("- **Investigation Timeline:**\n")
-                for note in notes:
-                    f.write(f"  - **[{note['timestamp']}]** ({note['operator']}): {note['action'].upper()} - {note['note']}\n")
-            else:
-                f.write("- **Investigation Timeline:** No auditor updates on record.\n")
-            f.write("\n---\n\n")
+        investigation_path = os.path.join(DOCS_DIR, "fraud_investigation_history.md")
+        
+        with open(investigation_path, "w", encoding="utf-8") as f:
+            f.write("# Kova Mart - Fraud Investigation & Alerts History\n\n")
+            f.write("Official record of all generated security alerts, threat analyses, and investigation outcomes.\n\n")
+            for alt in alerts:
+                f.write(f"## Alert {alt['alert_id']} - {alt['status'].upper()}\n")
+                f.write(f"- **Target Type:** {alt['target_type'].upper()} (ID: {alt['target_id']})\n")
+                f.write(f"- **Customer Name:** {alt['customer_name']} (ID: {alt['customer_id']})\n")
+                f.write(f"- **Threat Score:** {alt['risk_score']}%\n")
+                f.write(f"- **Severity Level:** {alt['severity_level']}\n")
+                f.write(f"- **Triggered Indicators:** `{alt['fraud_indicators_triggered']}`\n")
+                f.write(f"- **Recommended Actions:** *{alt['recommended_action']}*\n")
+                f.write(f"- **Detection Timestamp:** {alt['detection_timestamp']}\n")
+                
+                # Fetch investigation notes from pre-fetched dictionary
+                notes = logs_by_alert.get(alt['id'], [])
+                if notes:
+                    f.write("- **Investigation Timeline:**\n")
+                    for note in notes:
+                        f.write(f"  - **[{note['timestamp']}]** ({note['operator']}): {note['action'].upper()} - {note['note']}\n")
+                else:
+                    f.write("- **Investigation Timeline:** No auditor updates on record.\n")
+                f.write("\n---\n\n")
 
-    conn.close()
+    except Exception as e:
+        print(f"[DB Documentation Sync] Error synchronizing documentation: {e}")
+        import traceback
+        traceback.print_exc()
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception as e_close:
+                print(f"[DB Documentation Sync] Error closing connection: {e_close}")
+        _sync_lock.release()
 
 def check_member_fraud(nik, phone, kks_card, device_info, ip_address):
     """
@@ -544,3 +578,26 @@ def check_member_fraud(nik, phone, kks_card, device_info, ip_address):
     conn.close()
     is_fraud = len(triggered_checks) > 0
     return is_fraud, triggered_checks
+
+def ensure_indexes():
+    """Ensures performance indexes are created on database tables if they exist."""
+    conn = get_db_connection()
+    try:
+        cursor = conn.cursor()
+        # Check if one of the tables exists (e.g., audit_logs)
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='audit_logs'")
+        if cursor.fetchone():
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_fraud_scoring_logs_tx_id ON fraud_scoring_logs(transaction_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_fraud_scoring_logs_req_id ON fraud_scoring_logs(request_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_transactions_status ON transactions(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_alerts_alert_id ON alerts(alert_id)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_audit_logs_target ON audit_logs(target_type, target_id)")
+            conn.commit()
+    except Exception as e:
+        print(f"[DB] Error ensuring indexes: {e}")
+    finally:
+        conn.close()
+
+# Ensure performance indexes exist at startup/import
+ensure_indexes()
+

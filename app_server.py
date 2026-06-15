@@ -415,12 +415,24 @@ def get_transactions():
         if where_clauses:
             where_str = "WHERE " + " AND ".join(where_clauses)
 
-        # Count query
+        # Count query using CTE
         conn = database.get_db_connection()
         cursor = conn.cursor()
         cursor.execute(f"""
+            WITH dashboard_tx AS (
+                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
+            ),
+            latest_tx AS (
+                SELECT t.*
+                FROM dashboard_tx t
+                INNER JOIN (
+                    SELECT customer_id, MAX(id) as max_id
+                    FROM dashboard_tx
+                    GROUP BY customer_id
+                ) l ON t.id = l.max_id
+            )
             SELECT COUNT(*)
-            FROM transactions t
+            FROM latest_tx t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}
@@ -451,10 +463,22 @@ def get_transactions():
         if sort_col != 't.id':
             order_clause += f", t.id {sort_dir.upper()}"
 
-        # Fetch records
+        # Fetch records using CTE
         sql_query = f"""
+            WITH dashboard_tx AS (
+                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
+            ),
+            latest_tx AS (
+                SELECT t.*
+                FROM dashboard_tx t
+                INNER JOIN (
+                    SELECT customer_id, MAX(id) as max_id
+                    FROM dashboard_tx
+                    GROUP BY customer_id
+                ) l ON t.id = l.max_id
+            )
             SELECT t.*, m.name as customer_name, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level
-            FROM transactions t
+            FROM latest_tx t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}

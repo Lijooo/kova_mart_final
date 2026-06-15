@@ -741,6 +741,7 @@ function renderOperationsTable(rows) {
    
     pageRecords.forEach(tx => {
         const tr = document.createElement('tr');
+        tr.id = 'tx-row-' + tx.id;
         tr.style.cursor = 'pointer';
         tr.onclick = () => openAuditorPanel(tx, 'transaction');
        
@@ -905,13 +906,13 @@ function openAuditorPanel(target, type) {
         
         // Setup decision buttons
         actionsEl.innerHTML = `
-            <button class="btn btn-approve" style="flex:1;" onclick="applyTransactionAudit('approved')">
+            <button class="btn btn-approve" style="flex:1;" onclick="applyTransactionAudit('approved', this)">
                 <i data-lucide="check"></i> Approve Tx
             </button>
-            <button class="btn btn-block-action" style="flex:1;" onclick="applyTransactionAudit('blocked')">
+            <button class="btn btn-block-action" style="flex:1;" onclick="applyTransactionAudit('blocked', this)">
                 <i data-lucide="slash"></i> Block Tx
             </button>
-            <button class="btn btn-review" style="flex:1;" onclick="applyTransactionAudit('review')">
+            <button class="btn btn-review" style="flex:1;" onclick="applyTransactionAudit('review', this)">
                 <i data-lucide="eye"></i> Hold Review
             </button>
         `;
@@ -1039,13 +1040,13 @@ function openAuditorPanel(target, type) {
         `;
         
         actionsEl.innerHTML = `
-            <button class="btn btn-approve" style="flex:1;" onclick="applyAlertStatusUpdate('Resolved', 'verified')">
+            <button class="btn btn-approve" style="flex:1;" onclick="applyAlertStatusUpdate('Resolved', 'verified', this)">
                 <i data-lucide="check"></i> Resolve (Approve)
             </button>
-            <button class="btn btn-block-action" style="flex:1;" onclick="applyAlertStatusUpdate('Resolved', 'block')">
+            <button class="btn btn-block-action" style="flex:1;" onclick="applyAlertStatusUpdate('Resolved', 'block', this)">
                 <i data-lucide="slash"></i> Resolve (Block Target)
             </button>
-            <button class="btn btn-review" style="flex:1;" onclick="applyAlertStatusUpdate('Under Review')">
+            <button class="btn btn-review" style="flex:1;" onclick="applyAlertStatusUpdate('Under Review', '', this)">
                 <i data-lucide="eye"></i> Mark Investigating
             </button>
         `;
@@ -1216,16 +1217,55 @@ function renderTargetAuditLogs(history) {
 }
 
 // REST Audit calls
-async function applyTransactionAudit(decision) {
+let isSavingAudit = false;
+
+async function applyTransactionAudit(decision, btnEl = null) {
     if (!activeAuditTarget) return;
-    const noteText = document.getElementById('aud-notes').value.trim();
+    if (isSavingAudit) return; // Prevent duplicate API requests from double-clicks
     
+    isSavingAudit = true;
+    
+    let originalBtnHtml = "";
+    if (btnEl) {
+        btnEl.disabled = true;
+        originalBtnHtml = btnEl.innerHTML;
+        btnEl.innerHTML = `Saving...`;
+    }
+    
+    const noteText = document.getElementById('aud-notes').value.trim();
     const payload = {
         transaction_id: activeAuditTarget.id,
         status: decision,
         note: noteText || `Transaction marked as ${decision.toUpperCase()}`,
         operator: 'Auditor'
     };
+
+    const oldStatus = activeAuditTarget.status;
+    
+    // Optimistic UI updates
+    activeAuditTarget.status = decision;
+    
+    const rowEl = document.getElementById(`tx-row-${activeAuditTarget.id}`);
+    let oldClass = "";
+    let oldText = "";
+    let badgeSpan = null;
+    if (rowEl) {
+        badgeSpan = rowEl.querySelector('.status-badge');
+        if (badgeSpan) {
+            oldClass = badgeSpan.className;
+            oldText = badgeSpan.textContent;
+            let statusBadgeClass = `status-${decision}`;
+            let statusLabel = decision === 'review' ? 'Review' : decision;
+            badgeSpan.className = `status-badge ${statusBadgeClass}`;
+            badgeSpan.textContent = statusLabel;
+        }
+    }
+    
+    const localTx = allTransactions.find(t => t.id === activeAuditTarget.id);
+    if (localTx) localTx.status = decision;
+    
+    const localFilteredTx = filteredTransactions.find(t => t.id === activeAuditTarget.id);
+    if (localFilteredTx) localFilteredTx.status = decision;
 
     try {
         const json = await callApi('/api/transactions/audit', {
@@ -1236,19 +1276,45 @@ async function applyTransactionAudit(decision) {
         if (json.status === 'success') {
             showToast("Audit Registered", `Transaction #${activeAuditTarget.id} marked as ${decision.toUpperCase()}`, decision === 'blocked' ? 'critical' : 'success');
             closeAuditorPanel();
-            loadAllData(); // reload statistics & tables
         } else {
-            showToast("Audit Failed", json.message || "Could not save decision.", "critical");
+            throw new Error(json.message || "Could not save decision.");
         }
     } catch (e) {
         console.error("Auditing connection failed: ", e);
+        // Rollback optimistic update
+        activeAuditTarget.status = oldStatus;
+        if (localTx) localTx.status = oldStatus;
+        if (localFilteredTx) localFilteredTx.status = oldStatus;
+        
+        if (badgeSpan) {
+            badgeSpan.className = oldClass;
+            badgeSpan.textContent = oldText;
+        }
+    } finally {
+        isSavingAudit = false;
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = originalBtnHtml;
+        }
     }
 }
 
-async function applyAlertStatusUpdate(newStatus, actionType = '') {
+let isSavingAlert = false;
+
+async function applyAlertStatusUpdate(newStatus, actionType = '', btnEl = null) {
     if (!activeAuditTarget) return;
-    let noteText = document.getElementById('aud-notes').value.trim();
+    if (isSavingAlert) return; // Prevent duplicate API requests from double-clicks
     
+    isSavingAlert = true;
+    
+    let originalBtnHtml = "";
+    if (btnEl) {
+        btnEl.disabled = true;
+        originalBtnHtml = btnEl.innerHTML;
+        btnEl.innerHTML = `Saving...`;
+    }
+    
+    let noteText = document.getElementById('aud-notes').value.trim();
     if (newStatus === 'Resolved' && actionType) {
         noteText += ` (Resolved decision: ${actionType.toUpperCase()})`;
     }
@@ -1259,6 +1325,29 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
         operator: 'Auditor'
     };
 
+    const oldStatus = activeAuditTarget.status;
+    
+    // Optimistic update
+    activeAuditTarget.status = newStatus;
+    
+    const rowEl = document.getElementById(`alert-row-${activeAuditTarget.id}`);
+    let oldClass = "";
+    let oldText = "";
+    let badgeSpan = null;
+    if (rowEl) {
+        badgeSpan = rowEl.querySelector('.status-badge');
+        if (badgeSpan) {
+            oldClass = badgeSpan.className;
+            oldText = badgeSpan.textContent;
+            let statusBadgeClass = `status-${newStatus.replace(/\s+/g, '-').toLowerCase()}`;
+            badgeSpan.className = `status-badge ${statusBadgeClass}`;
+            badgeSpan.textContent = newStatus;
+        }
+    }
+    
+    const localAlert = allAlerts.find(a => a.id === activeAuditTarget.id);
+    if (localAlert) localAlert.status = newStatus;
+
     try {
         const json = await callApi(`/api/alerts/${activeAuditTarget.id}/status`, {
             method: 'POST',
@@ -1268,13 +1357,25 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
         if (json.status === 'success') {
             showToast("Alert Updated", `Incidents Alert ${activeAuditTarget.alert_id} status set to ${newStatus.toUpperCase()}`, newStatus === 'Resolved' ? 'success' : 'medium');
             closeAuditorPanel();
-            fetchAlerts(); // reload alerts registry
-            loadAllData();  // reload stats
         } else {
-            showToast("Resolution Failed", json.message || "Could not resolve alert.", "critical");
+            throw new Error(json.message || "Could not resolve alert.");
         }
     } catch (e) {
         console.error("Alert status connection failed: ", e);
+        // Rollback
+        activeAuditTarget.status = oldStatus;
+        if (localAlert) localAlert.status = oldStatus;
+        
+        if (badgeSpan) {
+            badgeSpan.className = oldClass;
+            badgeSpan.textContent = oldText;
+        }
+    } finally {
+        isSavingAlert = false;
+        if (btnEl) {
+            btnEl.disabled = false;
+            btnEl.innerHTML = originalBtnHtml;
+        }
     }
 }
 

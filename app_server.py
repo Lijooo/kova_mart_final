@@ -357,34 +357,146 @@ def get_suspicious():
 @require_auth
 def get_transactions():
     try:
+        # Get query parameters
+        page = request.args.get('page', 1)
+        limit = request.args.get('limit', 12)
+        search_val = request.args.get('search', '').strip()
+        risk_level = request.args.get('risk_level', 'ALL').strip()
+        status = request.args.get('status', 'ALL').strip()
+        channel = request.args.get('channel', 'ALL').strip()
+        sort_by = request.args.get('sort_by', 'id').strip()
+        sort_dir = request.args.get('sort_dir', 'desc').strip().lower()
+
+        # Type conversion
+        try:
+            page = int(page)
+            if page < 1:
+                page = 1
+        except ValueError:
+            page = 1
+
+        try:
+            limit = int(limit)
+        except ValueError:
+            limit = 12
+
+        if sort_dir not in ('asc', 'desc'):
+            sort_dir = 'desc'
+
+        # Filter criteria
+        where_clauses = []
+        params = []
+
+        if search_val:
+            like_pattern = f"%{search_val}%"
+            where_clauses.append("(CAST(t.customer_id AS TEXT) LIKE ? OR m.name LIKE ? OR CAST(t.transaction_amount AS TEXT) LIKE ? OR ('TX-' || printf('%04d', t.id)) LIKE ?)")
+            params.extend([like_pattern, like_pattern, like_pattern, like_pattern])
+
+        if risk_level != 'ALL':
+            # Clean up the emoji / prefix if present
+            clean_risk = risk_level.replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "").replace("🟢 ", "").split()
+            clean_risk = clean_risk[0] if clean_risk else "ALL"
+            if clean_risk != 'ALL':
+                if clean_risk == 'LOW':
+                    where_clauses.append("(r.level = 'LOW' OR r.level IS NULL)")
+                else:
+                    where_clauses.append("r.level = ?")
+                    params.append(clean_risk)
+
+        if status != 'ALL':
+            where_clauses.append("t.status = ?")
+            params.append(status)
+
+        if channel != 'ALL':
+            where_clauses.append("t.app_vs_kiosk = ?")
+            params.append(int(channel))
+
+        where_str = ""
+        if where_clauses:
+            where_str = "WHERE " + " AND ".join(where_clauses)
+
+        # Count query
         conn = database.get_db_connection()
         cursor = conn.cursor()
-        cursor.execute("""
+        cursor.execute(f"""
+            SELECT COUNT(*)
+            FROM transactions t
+            LEFT JOIN members m ON t.customer_id = m.id
+            LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
+            {where_str}
+        """, params)
+        total_records = cursor.fetchone()[0]
+
+        # Calculate pages
+        import math
+        if limit == -1 or limit <= 0:
+            total_pages = 1
+        else:
+            total_pages = math.ceil(total_records / limit)
+
+        # Sort columns mapping
+        sort_mapping = {
+            'id': 't.id',
+            'transaction_id': 't.id',
+            'customer_id': 't.customer_id',
+            'Initial_Subsidy': 't.initial_subsidy',
+            'transaction_amount': 't.transaction_amount',
+            'Subsidy_balance': 't.subsidy_balance',
+            'final_pct': 'COALESCE(r.final_pct, 0.0)',
+            'level': 'r.level',
+            'status': 't.status'
+        }
+        sort_col = sort_mapping.get(sort_by, 't.id')
+        order_clause = f"ORDER BY {sort_col} {sort_dir.upper()}"
+        if sort_col != 't.id':
+            order_clause += f", t.id {sort_dir.upper()}"
+
+        # Fetch records
+        sql_query = f"""
             SELECT t.*, m.name as customer_name, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level
             FROM transactions t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
-            ORDER BY t.id DESC
-        """)
+            {where_str}
+            {order_clause}
+        """
+        
+        if limit != -1:
+            sql_query += " LIMIT ? OFFSET ?"
+            offset = (page - 1) * limit
+            params_for_query = params + [limit, offset]
+        else:
+            params_for_query = params
+
+        cursor.execute(sql_query, params_for_query)
         rows = cursor.fetchall()
-        
-        # Pre-fetch all transaction audit logs in a single query to prevent N+1 performance issues
-        cursor.execute("SELECT target_id, action, note, timestamp FROM audit_logs WHERE target_type = 'transaction' ORDER BY id DESC")
-        logs_rows = cursor.fetchall()
+
+        # Prefetch logs only for the retrieved transaction IDs
+        tx_ids = [r["id"] for r in rows]
         logs_by_tx = {}
-        for log in logs_rows:
-            tx_id = log["target_id"]
-            if tx_id not in logs_by_tx:
-                logs_by_tx[tx_id] = []
-            logs_by_tx[tx_id].append({
-                "action": log["action"],
-                "note": log["note"],
-                "timestamp": log["timestamp"]
-            })
-        
+        if tx_ids:
+            placeholders = ",".join(["?"] * len(tx_ids))
+            cursor.execute(f"""
+                SELECT target_id, action, note, timestamp 
+                FROM audit_logs 
+                WHERE target_type = 'transaction' AND target_id IN ({placeholders}) 
+                ORDER BY id DESC
+            """, tx_ids)
+            logs_rows = cursor.fetchall()
+            for log in logs_rows:
+                tx_id = log["target_id"]
+                if tx_id not in logs_by_tx:
+                    logs_by_tx[tx_id] = []
+                logs_by_tx[tx_id].append({
+                    "action": log["action"],
+                    "note": log["note"],
+                    "timestamp": log["timestamp"]
+                })
+
         records = []
         for r in rows:
             rec = dict(r)
+            rec["transaction_id"] = f"TX-{r['id']:04d}"
             rec["auditHistory"] = logs_by_tx.get(r["id"], [])
             rec["risk_pct"] = r["final_pct"] if r["final_pct"] is not None else 0.0
             rec["Initial_Subsidy"] = r["initial_subsidy"]
@@ -393,11 +505,18 @@ def get_transactions():
             rec["app(0) vs kiosk(1)transaction"] = r["app_vs_kiosk"]
             rec["repeated_product_purchase(>10)"] = r["repeated_product_purchase"]
             rec["same_product_transcation_count_month"] = r["same_product_transaction_count_month"]
-            
             records.append(clean_numpy(rec))
-            
+
         conn.close()
-        return jsonify({"status": "success", "count": len(records), "transactions": records})
+        
+        return jsonify({
+            "status": "success",
+            "total_records": total_records,
+            "total_pages": total_pages,
+            "current_page": page,
+            "rows": records,
+            "transactions": records
+        })
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": str(e)}), 500

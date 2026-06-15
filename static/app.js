@@ -11,6 +11,127 @@ window.onerror = function(message, source, lineno, colno, error) {
     }
     return false;
 };
+
+const DEPLOYED_BACKEND_URL = "https://kova-mart-final.onrender.com";
+let isConnected = true;
+let connectionErrorToastVisible = false;
+let lastConnectionErrorTime = 0;
+const CONNECTION_ERROR_COOLDOWN = 30000; // 30 seconds
+
+function getApiUrl(endpoint) {
+    if (window.location.origin.includes('localhost') || window.location.origin.includes('127.0.0.1')) {
+        return endpoint;
+    }
+    if (window.location.origin.includes('kova-mart-final.onrender.com')) {
+        return endpoint;
+    }
+    return DEPLOYED_BACKEND_URL + endpoint;
+}
+
+function showConnectionError(detailedError) {
+    console.error("[API Connection Error Details]:", detailedError);
+    
+    const now = Date.now();
+    if (connectionErrorToastVisible) {
+        return; // Display only one connection-error toast at a time
+    }
+    if (now - lastConnectionErrorTime < CONNECTION_ERROR_COOLDOWN) {
+        return; // Cooldown of 30 seconds
+    }
+    
+    isConnected = false;
+    connectionErrorToastVisible = true;
+    lastConnectionErrorTime = now;
+    
+    const container = document.getElementById('global-toast-container');
+    if (!container) return;
+    
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.id = 'connection-error-toast';
+    
+    const borderClr = 'var(--color-critical)';
+    const icon = 'alert-octagon';
+    toast.style.borderLeftColor = borderClr;
+    toast.innerHTML = `
+        <i class="toast-icon" data-lucide="${icon}" style="color: ${borderClr};"></i>
+        <div class="toast-content">
+            <div class="toast-title">Connection Error</div>
+            <div class="toast-desc">API endpoint unreachable.</div>
+        </div>
+        <button class="toast-close" onclick="closeConnectionErrorToast()">✕</button>
+    `;
+    container.appendChild(toast);
+    if (window.lucide) lucide.createIcons();
+    
+    setTimeout(() => {
+        if (document.getElementById('connection-error-toast')) {
+            closeConnectionErrorToast();
+        }
+    }, 5000);
+}
+
+function closeConnectionErrorToast() {
+    const toast = document.getElementById('connection-error-toast');
+    if (toast) {
+        toast.style.animation = 'slideOut 0.3s forwards';
+        setTimeout(() => {
+            toast.remove();
+            connectionErrorToastVisible = false;
+        }, 300);
+    } else {
+        connectionErrorToastVisible = false;
+    }
+}
+
+function handleConnectionSuccess() {
+    if (!isConnected) {
+        isConnected = true;
+        closeConnectionErrorToast();
+        showToast("Connection Restored", "API connection successfully re-established.", "success");
+    }
+}
+
+async function fetchWithTimeout(resource, options = {}) {
+    const { timeout = 8000 } = options;
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    try {
+        const response = await fetch(resource, {
+            ...options,
+            signal: controller.signal
+        });
+        clearTimeout(id);
+        return response;
+    } catch (err) {
+        clearTimeout(id);
+        throw err;
+    }
+}
+
+async function callApi(endpoint, options = {}) {
+    const url = getApiUrl(endpoint);
+    try {
+        const response = await fetchWithTimeout(url, options);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP Error Status: ${response.status}`);
+        }
+        
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+            throw new Error("Invalid response content type: Expected application/json");
+        }
+        
+        const data = await response.json();
+        handleConnectionSuccess();
+        return data;
+    } catch (err) {
+        showConnectionError(err);
+        throw err;
+    }
+}
+
 let allTransactions = [];
 let filteredTransactions = [];
 let allAlerts = [];
@@ -291,24 +412,18 @@ function switchView(viewName) {
 async function loadAllData() {
     try {
         // 1. Fetch Stats API
-        const statsRes = await fetch('/api/stats');
-        const statsJson = await statsRes.json();
-        if (statsJson.status === 'success') {
-            statsData = statsJson;
-            await fetchAlerts(true);
-            updateOverviewStats();
-            updateDashboardRecentActivity(statsJson);
-            checkForNewAlerts(statsJson.recent_alerts);
-        }
+        const statsJson = await callApi('/api/stats');
+        statsData = statsJson;
+        await fetchAlerts(true);
+        updateOverviewStats();
+        updateDashboardRecentActivity(statsJson);
+        checkForNewAlerts(statsJson.recent_alerts);
        
         // 2. Fetch Transactions API
-        const txRes = await fetch('/api/transactions');
-        const txJson = await txRes.json();
-        if (txJson.status === 'success') {
-            allTransactions = txJson.transactions;
-            handleFilterChange(); // Initial filter & sort for operations table
-            renderAllCharts();    // Build visual graphics
-        }
+        const txJson = await callApi('/api/transactions?limit=-1');
+        allTransactions = txJson.transactions;
+        fetchOperationsPage(); // Initial filter & sort for operations table
+        renderAllCharts();    // Build visual graphics
     } catch (e) {
         console.error("Error loading dashboard data: ", e);
         showToast("Error loading system metrics", "Could not connect to Flask API server.", "critical");
@@ -491,8 +606,7 @@ function startDatabasePoller() {
 // ─── ALERTS CENTER INCIDENTS VIEW ────────────────────────────────────────────
 async function fetchAlerts(silent = false) {
     try {
-        const res = await fetch('/api/alerts');
-        const json = await res.json();
+        const json = await callApi('/api/alerts');
         if (json.status === 'success') {
             allAlerts = json.alerts;
             
@@ -542,8 +656,7 @@ function handleAlertsFilter() {
 // ─── MEMBER REGISTRATION MANAGEMENT ──────────────────────────────────────────
 async function fetchMembers(silent = false) {
     try {
-        const res = await fetch('/api/members');
-        const json = await res.json();
+        const json = await callApi('/api/members');
         if (json.status === 'success') {
             allMembers = json.members;
             const table = document.getElementById('members-table-body');
@@ -557,38 +670,34 @@ async function fetchMembers(silent = false) {
 
 
 // ─── OPERATIONS CONSOLE SEARCH & SORTING ─────────────────────────────────────
-function handleFilterChange() {
+let totalOpRecords = 0;
+let totalOpPages = 1;
+
+async function fetchOperationsPage() {
     const searchVal = document.getElementById('op-search-input').value.toLowerCase().trim();
     const riskFilter = document.getElementById('filter-risk').value;
     const channelFilter = document.getElementById('filter-channel').value;
     const statusFilter = document.getElementById('filter-status').value;
-   
-    filteredTransactions = allTransactions.filter(tx => {
-        // 1. Search Query
-        const matchSearch = tx.customer_id.toString().includes(searchVal) ||
-                            tx.customer_name.toLowerCase().includes(searchVal) ||
-                            tx.transaction_amount.toString().includes(searchVal);
-       
-        // 2. Risk score matching
-        const score = tx.final_pct || tx.risk_pct || 0;
-        let lvl = '🟢 LOW';
-        if (score >= 80) lvl = '🔴 CRITICAL';
-        else if (score >= 55) lvl = '🟠 HIGH';
-        else if (score >= 40) lvl = '🟡 MEDIUM';
-        const matchRisk = (riskFilter === 'ALL' || riskFilter === lvl);
-       
-        // 3. Kiosk vs App matching
-        const kioskVal = tx["app(0) vs kiosk(1)transaction"];
-        const matchChannel = (channelFilter === 'ALL' || channelFilter === kioskVal.toString());
-       
-        // 4. Auditor decision status matching
-        const matchStatus = (statusFilter === 'ALL' || statusFilter === tx.status);
-       
-        return matchSearch && matchRisk && matchChannel && matchStatus;
-    });
-   
+    
+    const url = `/api/transactions?page=${currentPage}&limit=${rowsPerPage}&search=${encodeURIComponent(searchVal)}&risk_level=${encodeURIComponent(riskFilter)}&channel=${encodeURIComponent(channelFilter)}&status=${encodeURIComponent(statusFilter)}&sort_by=${currentSortCol}&sort_dir=${currentSortDir}`;
+    
+    try {
+        const json = await callApi(url);
+        if (json.status === 'success') {
+            totalOpRecords = json.total_records;
+            totalOpPages = json.total_pages;
+            currentPage = json.current_page;
+            filteredTransactions = json.rows;
+            renderOperationsTable(json.rows);
+        }
+    } catch (e) {
+        console.error("Operations console page fetching error: ", e);
+    }
+}
+
+function handleFilterChange() {
     currentPage = 1; // Reset to page 1
-    sortTransactions();
+    fetchOperationsPage();
 }
 
 function handleSort(column) {
@@ -599,50 +708,31 @@ function handleSort(column) {
         currentSortDir = 'asc';
     }
    
-    const cols = ['customer_id', 'Initial_Subsidy', 'transaction_amount', 'Subsidy_balance', 'final_pct', 'level', 'status'];
+    const cols = ['transaction_id', 'customer_id', 'Initial_Subsidy', 'transaction_amount', 'Subsidy_balance', 'final_pct', 'level', 'status'];
     cols.forEach(c => {
         const el = document.getElementById(`sort-icon-${c}`);
         if (el) el.textContent = '';
     });
    
     const caret = currentSortDir === 'asc' ? ' ▴' : ' ▾';
-    document.getElementById(`sort-icon-${column}`).textContent = caret;
+    const sortIconEl = document.getElementById(`sort-icon-${column}`);
+    if (sortIconEl) sortIconEl.textContent = caret;
    
-    sortTransactions();
+    currentPage = 1;
+    fetchOperationsPage();
 }
 
-function sortTransactions() {
-    filteredTransactions.sort((a, b) => {
-        let valA = a[currentSortCol];
-        let valB = b[currentSortCol];
-       
-        if (currentSortCol === 'final_pct') {
-            valA = a.final_pct || a.risk_pct || 0;
-            valB = b.final_pct || b.risk_pct || 0;
-        }
-       
-        if (typeof valA === 'string') {
-            return currentSortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
-        } else {
-            return currentSortDir === 'asc' ? valA - valB : valB - valA;
-        }
-    });
-   
-    renderOperationsTable();
-}
-
-function renderOperationsTable() {
+function renderOperationsTable(rows) {
     const tbody = document.getElementById('operations-table-body');
     tbody.innerHTML = '';
    
-    const totalCount = filteredTransactions.length;
+    const pageRecords = rows || filteredTransactions;
+    const totalCount = totalOpRecords;
     const startIndex = (currentPage - 1) * rowsPerPage;
-    const endIndex = Math.min(startIndex + rowsPerPage, totalCount);
-   
-    const pageRecords = filteredTransactions.slice(startIndex, endIndex);
+    const endIndex = Math.min(startIndex + pageRecords.length, totalCount);
    
     if (pageRecords.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching transactions found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching transactions found</td></tr>`;
         document.getElementById('pagination-info-text').textContent = 'Showing 0 to 0 of 0 transactions';
         document.getElementById('pagination-prev').disabled = true;
         document.getElementById('pagination-next').disabled = true;
@@ -662,8 +752,11 @@ function renderOperationsTable() {
        
         let statusBadgeClass = `status-${tx.status}`;
         let statusLabel = tx.status === 'review' ? 'Review' : tx.status;
+        
+        const txIdStr = tx.transaction_id || ('TX-' + String(tx.id).padStart(4, '0'));
        
         tr.innerHTML = `
+            <td style="font-family: var(--font-heading); font-weight:600; color: var(--color-primary);">${txIdStr}</td>
             <td style="font-family: var(--font-heading); font-weight:600;">#${tx.customer_id} (${tx.customer_name || 'Seeded Member'})</td>
             <td>Rp ${parseFloat(tx.Initial_Subsidy).toLocaleString('id-ID')}</td>
             <td style="font-weight: 500;">Rp ${parseFloat(tx.transaction_amount).toLocaleString('id-ID')}</td>
@@ -675,56 +768,76 @@ function renderOperationsTable() {
         tbody.appendChild(tr);
     });
    
-    document.getElementById('pagination-info-text').textContent = `Showing ${startIndex + 1} to ${endIndex} of ${totalCount} transactions`;
+    document.getElementById('pagination-info-text').textContent = `Showing ${startIndex + 1} to ${startIndex + pageRecords.length} of ${totalCount} transactions`;
     document.getElementById('pagination-prev').disabled = currentPage === 1;
-    document.getElementById('pagination-next').disabled = endIndex >= totalCount;
+    document.getElementById('pagination-next').disabled = currentPage >= totalOpPages;
 }
 
 function changePage(direction) {
-    currentPage += direction;
-    renderOperationsTable();
+    const targetPage = currentPage + direction;
+    if (targetPage >= 1 && targetPage <= totalOpPages) {
+        currentPage = targetPage;
+        fetchOperationsPage();
+    }
 }
 
-// Client-side CSV Export
-function exportFilteredToCSV() {
-    if (filteredTransactions.length === 0) return;
-   
-    const csvRows = [];
-    const headers = [
-        "Customer_ID", "Customer_Name", "Initial_Subsidy", "Transaction_Amount", "Subsidy_Balance",
-        "Hour_of_Day", "Num_Items", "Failed_Logins", "Payment_Retry",
-        "Risk_Score", "Verdict", "Audit_Status", "Notes"
-    ];
-    csvRows.push(headers.join(","));
-   
-    filteredTransactions.forEach(tx => {
-        const score = tx.final_pct || tx.risk_pct || 0;
-        const row = [
-            tx.customer_id,
-            `"${tx.customer_name || 'Seeded Member'}"`,
-            tx.Initial_Subsidy,
-            tx.transaction_amount,
-            tx.Subsidy_balance,
-            tx.hour_of_day,
-            tx.num_items,
-            tx.failed_login_attempts || 0,
-            tx.payment_retry_count || 0,
-            score,
-            `"${tx.verdict || (score >= 40 ? 'POSSIBLE FRAUD' : 'LEGIT')}"`,
-            tx.status,
-            `"${(tx.notes || '').replace(/"/g, '""')}"`
+async function exportFilteredToCSV() {
+    const searchVal = document.getElementById('op-search-input').value.toLowerCase().trim();
+    const riskFilter = document.getElementById('filter-risk').value;
+    const channelFilter = document.getElementById('filter-channel').value;
+    const statusFilter = document.getElementById('filter-status').value;
+    
+    const url = `/api/transactions?limit=-1&search=${encodeURIComponent(searchVal)}&risk_level=${encodeURIComponent(riskFilter)}&channel=${encodeURIComponent(channelFilter)}&status=${encodeURIComponent(statusFilter)}&sort_by=${currentSortCol}&sort_dir=${currentSortDir}`;
+    
+    try {
+        const json = await callApi(url);
+        if (json.status !== 'success' || !json.transactions) return;
+        
+        const recordsToExport = json.transactions;
+        if (recordsToExport.length === 0) return;
+        
+        const csvRows = [];
+        const headers = [
+            "Transaction_ID", "Customer_ID", "Customer_Name", "Initial_Subsidy", "Transaction_Amount", "Subsidy_Balance",
+            "Hour_of_Day", "Num_Items", "Failed_Logins", "Payment_Retry",
+            "Risk_Score", "Verdict", "Audit_Status", "Notes"
         ];
-        csvRows.push(row.join(","));
-    });
-   
-    const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `kovamart_security_operations_export_${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+        csvRows.push(headers.join(","));
+       
+        recordsToExport.forEach(tx => {
+            const score = tx.final_pct || tx.risk_pct || 0;
+            const txIdStr = tx.transaction_id || ('TX-' + String(tx.id).padStart(4, '0'));
+            const row = [
+                txIdStr,
+                tx.customer_id,
+                `"${tx.customer_name || 'Seeded Member'}"`,
+                tx.Initial_Subsidy,
+                tx.transaction_amount,
+                tx.Subsidy_balance,
+                tx.hour_of_day,
+                tx.num_items,
+                tx.failed_login_attempts || 0,
+                tx.payment_retry_count || 0,
+                score,
+                `"${tx.verdict || (score >= 40 ? 'POSSIBLE FRAUD' : 'LEGIT')}"`,
+                tx.status,
+                `"${(tx.notes || '').replace(/"/g, '""')}"`
+            ];
+            csvRows.push(row.join(","));
+        });
+       
+        const csvContent = "data:text/csv;charset=utf-8," + csvRows.join("\n");
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `kovamart_security_operations_export_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    } catch (e) {
+        console.error("CSV export failed: ", e);
+        showToast("Export Failed", "Could not fetch data for CSV export.", "critical");
+    }
 }
 
 // ─── AUDITOR SLIDE-OVER INCIDENT PANEL ───────────────────────────────────────
@@ -1115,12 +1228,11 @@ async function applyTransactionAudit(decision) {
     };
 
     try {
-        const res = await fetch('/api/transactions/audit', {
+        const json = await callApi('/api/transactions/audit', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const json = await res.json();
         if (json.status === 'success') {
             showToast("Audit Registered", `Transaction #${activeAuditTarget.id} marked as ${decision.toUpperCase()}`, decision === 'blocked' ? 'critical' : 'success');
             closeAuditorPanel();
@@ -1130,7 +1242,6 @@ async function applyTransactionAudit(decision) {
         }
     } catch (e) {
         console.error("Auditing connection failed: ", e);
-        showToast("Connection Error", "API endpoint unreachable.", "critical");
     }
 }
 
@@ -1149,12 +1260,11 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
     };
 
     try {
-        const res = await fetch(`/api/alerts/${activeAuditTarget.id}/status`, {
+        const json = await callApi(`/api/alerts/${activeAuditTarget.id}/status`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-        const json = await res.json();
         if (json.status === 'success') {
             showToast("Alert Updated", `Incidents Alert ${activeAuditTarget.alert_id} status set to ${newStatus.toUpperCase()}`, newStatus === 'Resolved' ? 'success' : 'medium');
             closeAuditorPanel();
@@ -1165,7 +1275,6 @@ async function applyAlertStatusUpdate(newStatus, actionType = '') {
         }
     } catch (e) {
         console.error("Alert status connection failed: ", e);
-        showToast("Connection Error", "API endpoint unreachable.", "critical");
     }
 }
 
@@ -1199,8 +1308,7 @@ function updateSliderDisplay(inputEl) {
 
 async function triggerSyntheticGeneration() {
     try {
-        const res = await fetch('/api/generate');
-        const json = await res.json();
+        const json = await callApi('/api/generate');
         if (json.status === 'success') {
             const tx = json.transaction;
            
@@ -1273,20 +1381,17 @@ async function runManualAnalysis() {
     };
    
     try {
-        const res = await fetch('/api/analyze', {
+        const json = await callApi('/api/analyze', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
-       
-        const json = await res.json();
         if (json.status === 'success') {
             const r = json.result;
             updateSimulatorOutput(r);
         }
     } catch (e) {
         console.error("Evaluation Error: ", e);
-        showToast("Error running risk evaluation", "Backend evaluation server error", "critical");
     }
 }
 
@@ -1391,12 +1496,11 @@ async function processBatchScoring() {
         statusText.textContent = `Analyzing records ${i + 1} to ${Math.min(i + batchSize, total)} of ${total}...`;
        
         try {
-            const res = await fetch('/api/analyze_batch', {
+            const json = await callApi('/api/analyze_batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ transactions: slice })
             });
-            const json = await res.json();
            
             if (json.status === 'success') {
                 uploadScoredResults = uploadScoredResults.concat(json.results);
@@ -1818,6 +1922,10 @@ function renderAllCharts() {
 
 // ─── TOAST NOTIFICATIONS ─────────────────────────────────────────────────────
 function showToast(title, desc, type = 'success') {
+    // Suppress duplicate critical error messages when connection is offline
+    if (!isConnected && type === 'critical' && (title.toLowerCase().includes('connection') || title.toLowerCase().includes('error') || desc.toLowerCase().includes('unreachable') || desc.toLowerCase().includes('failed'))) {
+        return;
+    }
     const container = document.getElementById('global-toast-container');
     const toast = document.createElement('div');
     toast.className = 'toast';
@@ -1880,8 +1988,7 @@ async function populateBellDropdown() {
     
     // Make sure we have latest alerts list
     try {
-        const res = await fetch('/api/alerts');
-        const json = await res.json();
+        const json = await callApi('/api/alerts');
         if (json.status === 'success') {
             allAlerts = json.alerts;
             // Mark all currently fetched alerts as seen by updating lastSeenAlertId

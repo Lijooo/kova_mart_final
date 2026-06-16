@@ -198,30 +198,62 @@ def get_stats():
         cursor.execute("SELECT COUNT(*) FROM alerts WHERE status != 'Resolved'")
         unresolved_alerts = cursor.fetchone()[0]
 
-        # 3. Transaction stats
-        cursor.execute("SELECT COUNT(*) FROM transactions")
-        total_tx = cursor.fetchone()[0]
-
-        # Fraud transactions are transactions that triggered a high-risk score
-        cursor.execute("SELECT COUNT(*) FROM transactions WHERE status IN ('blocked', 'review')")
-        fraud_tx = cursor.fetchone()[0]
+        # 3. Transaction stats (limited to the last 1,500 transactions)
+        cursor.execute("""
+            WITH last_1500 AS (
+                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
+            )
+            SELECT 
+                COUNT(*),
+                SUM(CASE WHEN status IN ('blocked', 'review') THEN 1 ELSE 0 END)
+            FROM last_1500
+        """)
+        row_tx = cursor.fetchone()
+        total_tx = row_tx[0] if row_tx else 0
+        fraud_tx = row_tx[1] if row_tx and row_tx[1] is not None else 0
         legit_tx = total_tx - fraud_tx
 
-        cursor.execute("SELECT AVG(final_pct) FROM risk_scores WHERE target_type = 'transaction'")
+        cursor.execute("""
+            WITH last_1500 AS (
+                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
+            )
+            SELECT AVG(r.final_pct) 
+            FROM risk_scores r
+            JOIN last_1500 t ON r.target_id = t.id
+            WHERE r.target_type = 'transaction'
+        """)
         avg_risk = cursor.fetchone()[0] or 0.0
 
-        # 4. Risk distribution
-        cursor.execute("SELECT COUNT(*) FROM risk_scores WHERE target_type = 'transaction' AND final_pct >= 80")
-        critical_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM risk_scores WHERE target_type = 'transaction' AND final_pct >= 55 AND final_pct < 80")
-        high_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM risk_scores WHERE target_type = 'transaction' AND final_pct >= 40 AND final_pct < 55")
-        medium_count = cursor.fetchone()[0]
-        cursor.execute("SELECT COUNT(*) FROM risk_scores WHERE target_type = 'transaction' AND final_pct < 40")
-        low_count = cursor.fetchone()[0]
+        # 4. Risk distribution (limited to the last 1,500 transactions)
+        cursor.execute("""
+            WITH last_1500 AS (
+                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
+            )
+            SELECT 
+                SUM(CASE WHEN r.final_pct >= 80 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN r.final_pct >= 55 AND r.final_pct < 80 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN r.final_pct >= 40 AND r.final_pct < 55 THEN 1 ELSE 0 END),
+                SUM(CASE WHEN r.final_pct < 40 THEN 1 ELSE 0 END)
+            FROM risk_scores r
+            JOIN last_1500 t ON r.target_id = t.id
+            WHERE r.target_type = 'transaction'
+        """)
+        dist_row = cursor.fetchone()
+        critical_count = dist_row[0] if dist_row and dist_row[0] is not None else 0
+        high_count = dist_row[1] if dist_row and dist_row[1] is not None else 0
+        medium_count = dist_row[2] if dist_row and dist_row[2] is not None else 0
+        low_count = dist_row[3] if dist_row and dist_row[3] is not None else 0
 
-        # 5. Top flags counts
-        cursor.execute("SELECT triggered_flags FROM risk_scores WHERE target_type = 'transaction'")
+        # 5. Top flags counts (limited to the last 1,500 transactions)
+        cursor.execute("""
+            WITH last_1500 AS (
+                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
+            )
+            SELECT r.triggered_flags 
+            FROM risk_scores r
+            JOIN last_1500 t ON r.target_id = t.id
+            WHERE r.target_type = 'transaction'
+        """)
         all_flag_lists = cursor.fetchall()
         
         flag_labels = {
@@ -520,7 +552,7 @@ def get_transactions():
         records = []
         for r in rows:
             rec = dict(r)
-            rec["transaction_id"] = f"TX-{r['id']:04d}"
+            # Remove transaction_id from response
             rec["auditHistory"] = logs_by_tx.get(r["id"], [])
             rec["risk_pct"] = r["final_pct"] if r["final_pct"] is not None else 0.0
             rec["Initial_Subsidy"] = r["initial_subsidy"]
@@ -1113,6 +1145,29 @@ def generate_and_score_transaction_internal():
         
     res = final.score_transaction(tx)
     score = res["final_pct"]
+    # Determine risk and decision based on new rules
+    ip_outside = int(tx.get("IP address (outside Indonesia )", 0))
+    if ip_outside == 1:
+        status_val = "blocked"
+        risk_category = "CRITICAL"
+        decision = "BLOCK"
+    elif score >= 80:
+        status_val = "blocked"
+        risk_category = "CRITICAL"
+        decision = "BLOCK"
+    elif score >= 55:
+        status_val = "blocked"
+        risk_category = "HIGH"
+        decision = "BLOCK"
+    elif score >= 40:
+        status_val = "review"
+        risk_category = "MEDIUM"
+        decision = "REVIEW"
+    else:
+        status_val = "approved"
+        risk_category = "LOW"
+        decision = "APPROVE"
+
     timestamp = datetime.now().isoformat()
     
     # 1. Save Transaction to database
@@ -1129,10 +1184,10 @@ def generate_and_score_transaction_internal():
           int(tx.get("same_product_transcation_count_month", 0)), int(tx["prev_transactions"]),
           int(tx["is_first_transaction"]), int(tx["National_ID_verification"]), int(tx["KKS_card_validation"]),
           int(tx["Duplicate_account_detection"]), int(tx["Transaction frequency (>3 per hour)"]),
-          int(tx["valid_card"]), int(tx["IP address (outside Indonesia )"]), int(tx["app(0) vs kiosk(1)transaction"]),
+          int(tx["valid_card"]), ip_outside, int(tx["app(0) vs kiosk(1)transaction"]),
           int(tx["failed_login_attempts"]), int(tx["payment_retry_count"]),
           int(tx.get("same_device_multiple_accounts", 0)), int(tx.get("login_location_changed", 0)),
-          "review" if score >= 55 else "approved"))
+          status_val))
     tx_id = cursor.lastrowid
     
     # 2. Save Risk Score
@@ -1148,32 +1203,35 @@ def generate_and_score_transaction_internal():
     # 3. Log Audit Entry
     cursor.execute("""
         INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-        VALUES ('transaction', ?, 'created', ?, 'System', ?)
-    """, (tx_id, f"Generated transaction for {name}. Score: {score}%. Status: {'REVIEW' if score >= 55 else 'APPROVED'}.", timestamp))
+        VALUES ('transaction', ?, ?, ?, 'System', ?)
+    """, (tx_id, status_val, f"Generated transaction for {name}. Score: {score}%. Status: {status_val.upper()}.", timestamp))
     
     alert_id = None
-    # 4. Generate Alert if Score >= 55%
-    if score >= 55:
-        rec_act = "Flag account for immediate review. Inspect payment retry logs."
-        if level == "CRITICAL":
-            rec_act = "IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance."
-        elif level == "HIGH":
-            rec_act = "Verify identity document (NIK) and review login location history."
+    # 4. Generate Alert if Score >= 40 (MEDIUM, HIGH, CRITICAL)
+    if score >= 40:
+        cursor.execute("SELECT COUNT(*) FROM alerts WHERE target_type = 'transaction' AND target_id = ?", (tx_id,))
+        if cursor.fetchone()[0] == 0:
+            rec_act = "Flag account for immediate review. Inspect payment retry logs."
+            if risk_category == "CRITICAL":
+                rec_act = "IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance."
+            elif risk_category == "HIGH":
+                rec_act = "Verify identity document (NIK) and review login location history."
+                
+            alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-TX{tx_id:04d}"
+            triggered_flags = [k for k, v in res["flags"].items() if v == 1]
+            alert_status = 'Open' if status_val == 'review' else 'Resolved'
             
-        alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-TX{tx_id:04d}"
-        triggered_flags = [k for k, v in res["flags"].items() if v == 1]
-        
-        cursor.execute("""
-            INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
-            VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?)
-        """, (alert_id, tx_id, name, c_id, score, json.dumps(triggered_flags), json.dumps(tx), timestamp, level, rec_act))
-        alert_db_id = cursor.lastrowid
-        
-        # Log Alert
-        cursor.execute("""
-            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-            VALUES ('alert', ?, 'triggered', ?, 'System', ?)
-        """, (alert_db_id, f"Alert {alert_id} generated for {name} transaction ID {tx_id}.", timestamp))
+            cursor.execute("""
+                INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
+                VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (alert_id, tx_id, name, c_id, score, json.dumps(triggered_flags), json.dumps(tx), timestamp, alert_status, risk_category, rec_act))
+            alert_db_id = cursor.lastrowid
+            
+            # Log Alert
+            cursor.execute("""
+                INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                VALUES ('alert', ?, 'triggered', ?, 'System', ?)
+            """, (alert_db_id, f"Alert {alert_id} generated for {name} transaction ID {tx_id}.", timestamp))
         
     conn.commit()
     conn.close()
@@ -1284,6 +1342,162 @@ def analyze_tx():
     except Exception as e:
         traceback.print_exc()
         return jsonify({"status": "error", "message": "An internal server error occurred."}), 500
+
+# ─── API: ADD SIMULATED TRANSACTION TO QUEUE ─────────────────────────────────
+@app.route('/api/simulator/add', methods=['POST'])
+def simulator_add_tx():
+    try:
+        data = request.json
+        if not data:
+            return jsonify({"status": "error", "message": "No data provided"}), 400
+
+        t = {}
+        t["Initial_Subsidy"]                        = float(data.get("Initial_Subsidy", 0))
+        t["transaction_amount"]                     = float(data.get("transaction_amount", 0))
+        t["Subsidy_balance"]                        = round(t["Initial_Subsidy"] - t["transaction_amount"], 2)
+        t["hour_of_day"]                            = int(data.get("hour_of_day", 12))
+        t["num_items"]                              = int(data.get("num_items", 1))
+        t["repeated_product_purchase(>10)"]         = int(data.get("repeated_product_purchase(>10)", 0))
+        t["same_product_transcation_count_month"]   = int(data.get("same_product_transcation_count_month", 0))
+        t["prev_transactions"]                      = int(data.get("prev_transactions", 0))
+        t["is_first_transaction"]                   = int(data.get("is_first_transaction", 0))
+        t["National_ID_verification"]               = int(data.get("National_ID_verification", 1))
+        t["KKS_card_validation"]                    = int(data.get("KKS_card_validation", 1))
+        t["Duplicate_account_detection"]            = int(data.get("Duplicate_account_detection", 0))
+        t["Transaction frequency (>3 per hour)"]    = int(data.get("Transaction frequency (>3 per hour)", 0))
+        t["valid_card"]                             = int(data.get("valid_card", 1))
+        t["IP address (outside Indonesia )"]        = int(data.get("IP address (outside Indonesia )", 0))
+        t["app(0) vs kiosk(1)transaction"]          = int(data.get("app(0) vs kiosk(1)transaction", 0))
+        t["failed_login_attempts"]                  = int(data.get("failed_login_attempts", 0))
+        t["payment_retry_count"]                    = int(data.get("payment_retry_count", 0))
+        t["same_device_multiple_accounts"]          = int(data.get("same_device_multiple_accounts", 0))
+        t["login_location_changed"]                 = int(data.get("login_location_changed", 0))
+
+        # 1. Fetch a random member to link
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM members ORDER BY RANDOM() LIMIT 1")
+        member = cursor.fetchone()
+        if member:
+            c_id = member["id"]
+            name = member["name"]
+        else:
+            c_id = 999
+            name = "Default Customer"
+
+        # 2. Score
+        res = final.score_transaction(t)
+        score = float(res["final_pct"])
+
+        # Determine risk and decision based on new rules
+        ip_outside = t["IP address (outside Indonesia )"]
+        if ip_outside == 1:
+            status_val = "blocked"
+            risk_category = "CRITICAL"
+            decision = "BLOCK"
+        elif score >= 80:
+            status_val = "blocked"
+            risk_category = "CRITICAL"
+            decision = "BLOCK"
+        elif score >= 55:
+            status_val = "blocked"
+            risk_category = "HIGH"
+            decision = "BLOCK"
+        elif score >= 40:
+            status_val = "review"
+            risk_category = "MEDIUM"
+            decision = "REVIEW"
+        else:
+            status_val = "approved"
+            risk_category = "LOW"
+            decision = "APPROVE"
+
+        timestamp = datetime.now().isoformat()
+
+        # Save Transaction
+        cursor.execute("""
+            INSERT INTO transactions (
+                customer_id, initial_subsidy, transaction_amount, subsidy_balance, hour_of_day, num_items,
+                repeated_product_purchase, same_product_transaction_count_month, prev_transactions,
+                is_first_transaction, national_id_verification, kks_card_validation, duplicate_account_detection,
+                transaction_frequency_high, valid_card, ip_outside_indonesia, app_vs_kiosk, failed_login_attempts,
+                payment_retry_count, same_device_multiple_accounts, login_location_changed, status
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (c_id, t["Initial_Subsidy"], t["transaction_amount"], t["Subsidy_balance"],
+              t["hour_of_day"], t["num_items"], t["repeated_product_purchase(>10)"],
+              t["same_product_transcation_count_month"], t["prev_transactions"],
+              t["is_first_transaction"], t["National_ID_verification"], t["KKS_card_validation"],
+              t["Duplicate_account_detection"], t["Transaction frequency (>3 per hour)"],
+              t["valid_card"], ip_outside, t["app(0) vs kiosk(1)transaction"],
+              t["failed_login_attempts"], t["payment_retry_count"],
+              t["same_device_multiple_accounts"], t["login_location_changed"],
+              status_val))
+        tx_id = cursor.lastrowid
+
+        # Save Risk Score
+        level = res["level"].replace("🔴 ", "").replace("🟠 ", "").replace("🟡 ", "").replace("🟢 ", "").split()[0]
+        verdict = res["verdict"]
+        cursor.execute("""
+            INSERT INTO risk_scores (target_type, target_id, rule_based_pct, ai_prob, final_pct, level, verdict, triggered_flags, triggered_combos)
+            VALUES ('transaction', ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (tx_id, res["rule_based_pct"], res["ai_prob"], score,
+              level, verdict, json.dumps([k for k, v in res["flags"].items() if v == 1]),
+              json.dumps([c["combo_id"] for c in res["triggered_combos"]])))
+
+        # Log Audit Entry
+        cursor.execute("""
+            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+            VALUES ('transaction', ?, ?, ?, 'System', ?)
+        """, (tx_id, status_val, f"Simulated transaction for {name} added. Score: {score}%. Status: {status_val.upper()}.", timestamp))
+
+        alert_id = None
+        # Generate Alert if Score >= 40 (MEDIUM, HIGH, CRITICAL)
+        if score >= 40:
+            cursor.execute("SELECT COUNT(*) FROM alerts WHERE target_type = 'transaction' AND target_id = ?", (tx_id,))
+            if cursor.fetchone()[0] == 0:
+                rec_act = "Flag account for immediate review. Inspect payment retry logs."
+                if risk_category == "CRITICAL":
+                    rec_act = "IMMEDIATE ACTION REQUIRED: Block account and freeze remaining subsidy balance."
+                elif risk_category == "HIGH":
+                    rec_act = "Verify identity document (NIK) and review login location history."
+                    
+                alert_id = f"ALT-{datetime.now().strftime('%Y%m%d')}-TX{tx_id:04d}"
+                triggered_flags = [k for k, v in res["flags"].items() if v == 1]
+                alert_status = 'Open' if status_val == 'review' else 'Resolved'
+                
+                cursor.execute("""
+                    INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
+                    VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, (alert_id, tx_id, name, c_id, score, json.dumps(triggered_flags), json.dumps(t), timestamp, alert_status, risk_category, rec_act))
+                alert_db_id = cursor.lastrowid
+                
+                # Log Alert
+                cursor.execute("""
+                    INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                    VALUES ('alert', ?, 'triggered', ?, 'System', ?)
+                """, (alert_db_id, f"Alert {alert_id} generated for {name} transaction ID {tx_id}.", timestamp))
+
+        conn.commit()
+        conn.close()
+
+        # Sync documentation
+        database.sync_all_documentation()
+
+        # Save simulated transaction to log CSV file
+        save_to_csv_log(t, score, level, verdict, alert_id)
+
+        return jsonify({
+            "status": "success", 
+            "customer_id": c_id,
+            "customer_name": name,
+            "decision": decision,
+            "status_val": status_val,
+            "risk_score": score,
+            "alert_id": alert_id
+        })
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 # ─── PRODUCTION FRAUD ENGINE ENDPOINTS ───────────────────────────────────────
 
@@ -1434,23 +1648,27 @@ def post_fraud_score():
         res = final.score_transaction(t_mapped)
         score = float(res["final_pct"])
         
-        # Determine risk and decision
-        if score < 40:
-            risk_category = "LOW"
-            decision = "APPROVE"
-            allow_transaction = True
-        elif score < 55:
-            risk_category = "MEDIUM"
-            decision = "REVIEW"
-            allow_transaction = False
-        elif score < 80:
-            risk_category = "HIGH"
-            decision = "BLOCK"
-            allow_transaction = False
-        else:
+        # Determine risk and decision based on new rules
+        if t_mapped["IP address (outside Indonesia )"] == 1:
             risk_category = "CRITICAL"
             decision = "BLOCK"
             allow_transaction = False
+        elif score >= 80:
+            risk_category = "CRITICAL"
+            decision = "BLOCK"
+            allow_transaction = False
+        elif score >= 55:
+            risk_category = "HIGH"
+            decision = "BLOCK"
+            allow_transaction = False
+        elif score >= 40:
+            risk_category = "MEDIUM"
+            decision = "REVIEW"
+            allow_transaction = False
+        else:
+            risk_category = "LOW"
+            decision = "APPROVE"
+            allow_transaction = True
             
         request_id = f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
         transaction_id = f"TX-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
@@ -1483,7 +1701,6 @@ def post_fraud_score():
         return jsonify({
             "status": "success",
             "request_id": request_id,
-            "transaction_id": transaction_id,
             "rule_based_score": float(res["rule_based_pct"]),
             "ai_probability_score": float(res["ai_prob"]),
             "final_risk_score": score,
@@ -1541,23 +1758,27 @@ def post_checkout():
             res = final.score_transaction(t_mapped)
             score = float(res["final_pct"])
             
-            # Determine risk and decision
-            if score < 40:
-                risk_category = "LOW"
-                decision = "APPROVE"
-                allow_transaction = True
-            elif score < 55:
-                risk_category = "MEDIUM"
-                decision = "REVIEW"
-                allow_transaction = False
-            elif score < 80:
-                risk_category = "HIGH"
-                decision = "BLOCK"
-                allow_transaction = False
-            else:
+            # Determine risk and decision based on new rules
+            if t_mapped["IP address (outside Indonesia )"] == 1:
                 risk_category = "CRITICAL"
                 decision = "BLOCK"
                 allow_transaction = False
+            elif score >= 80:
+                risk_category = "CRITICAL"
+                decision = "BLOCK"
+                allow_transaction = False
+            elif score >= 55:
+                risk_category = "HIGH"
+                decision = "BLOCK"
+                allow_transaction = False
+            elif score >= 40:
+                risk_category = "MEDIUM"
+                decision = "REVIEW"
+                allow_transaction = False
+            else:
+                risk_category = "LOW"
+                decision = "APPROVE"
+                allow_transaction = True
                 
             request_id = f"REQ-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
             transaction_id = f"TX-{datetime.utcnow().strftime('%Y%m%d')}-{random.randint(100000, 999999)}"
@@ -1659,27 +1880,31 @@ def post_checkout():
                     VALUES ('transaction', ?, ?, ?, 'System', ?)
                 """, (db_tx_id, status_val, f"Attempted transaction {decision}ed. Status: {status_val.upper()}.", timestamp))
                 
-                # Generate Alerts for HIGH and CRITICAL (score >= 55)
-                if score >= 55:
+                # Generate Alerts for MEDIUM, HIGH, and CRITICAL
+                if score >= 40:
                     cursor.execute("SELECT name FROM members WHERE id = ?", (customer_id,))
                     member_row = cursor.fetchone()
                     member_name = member_row["name"] if member_row else f"Customer {customer_id}"
                     
                     alert_id = f"ALT-{datetime.utcnow().strftime('%Y%m%d')}-TX{db_tx_id:04d}"
+                    alert_status = 'Open' if status_val == 'review' else 'Resolved'
                     
-                    cursor.execute("""
-                        INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
-                        VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, 'Open', ?, ?)
-                    """, (alert_id, db_tx_id, member_name, customer_id, score, json.dumps(triggered_flags), json.dumps(data), timestamp, risk_category, recommendation))
-                    alert_db_id = cursor.lastrowid
-                    
-                    cursor.execute("""
-                        INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-                        VALUES ('alert', ?, 'triggered', ?, 'System', ?)
-                    """, (alert_db_id, f"Alert {alert_id} generated for {member_name} attempted transaction ID {db_tx_id}.", timestamp))
-                    
-                    # Save to CSV log file
-                    save_to_csv_log(t_mapped_log, score, risk_category, res["verdict"], alert_id)
+                    # Prevent duplicate alerts
+                    cursor.execute("SELECT COUNT(*) FROM alerts WHERE target_type = 'transaction' AND target_id = ?", (db_tx_id,))
+                    if cursor.fetchone()[0] == 0:
+                        cursor.execute("""
+                            INSERT INTO alerts (alert_id, target_type, target_id, customer_name, customer_id, risk_score, fraud_indicators_triggered, transaction_details, detection_timestamp, status, severity_level, recommended_action)
+                            VALUES (?, 'transaction', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        """, (alert_id, db_tx_id, member_name, customer_id, score, json.dumps(triggered_flags), json.dumps(data), timestamp, alert_status, risk_category, recommendation))
+                        alert_db_id = cursor.lastrowid
+                        
+                        cursor.execute("""
+                            INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
+                            VALUES ('alert', ?, 'triggered', ?, 'System', ?)
+                        """, (alert_db_id, f"Alert {alert_id} generated for {member_name} attempted transaction ID {db_tx_id}.", timestamp))
+                        
+                        # Save to CSV log file
+                        save_to_csv_log(t_mapped_log, score, risk_category, res["verdict"], alert_id)
                     
                 conn.commit()
             except Exception as e_log:
@@ -1775,7 +2000,6 @@ def post_checkout():
         return jsonify({
             "status": "success",
             "message": "Checkout completed successfully.",
-            "transaction_id": f"TX-APPROVED-{db_tx_id}",
             "remaining_subsidy": new_balance
         }), 200
     except Exception as e:

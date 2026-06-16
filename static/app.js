@@ -708,7 +708,7 @@ function handleSort(column) {
         currentSortDir = 'asc';
     }
    
-    const cols = ['transaction_id', 'customer_id', 'Initial_Subsidy', 'transaction_amount', 'Subsidy_balance', 'final_pct', 'level', 'status'];
+    const cols = ['customer_id', 'Initial_Subsidy', 'transaction_amount', 'Subsidy_balance', 'final_pct', 'level', 'status'];
     cols.forEach(c => {
         const el = document.getElementById(`sort-icon-${c}`);
         if (el) el.textContent = '';
@@ -732,7 +732,7 @@ function renderOperationsTable(rows) {
     const endIndex = Math.min(startIndex + pageRecords.length, totalCount);
    
     if (pageRecords.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching transactions found</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: var(--text-muted); padding: 32px;">No matching transactions found</td></tr>`;
         document.getElementById('pagination-info-text').textContent = 'Showing 0 to 0 of 0 transactions';
         document.getElementById('pagination-prev').disabled = true;
         document.getElementById('pagination-next').disabled = true;
@@ -753,11 +753,8 @@ function renderOperationsTable(rows) {
        
         let statusBadgeClass = `status-${tx.status}`;
         let statusLabel = tx.status === 'review' ? 'Review' : tx.status;
-        
-        const txIdStr = tx.transaction_id || ('TX-' + String(tx.id).padStart(4, '0'));
        
         tr.innerHTML = `
-            <td style="font-family: var(--font-heading); font-weight:600; color: var(--color-primary);">${txIdStr}</td>
             <td style="font-family: var(--font-heading); font-weight:600;">#${tx.customer_id} (${tx.customer_name || 'Seeded Member'})</td>
             <td>Rp ${parseFloat(tx.Initial_Subsidy).toLocaleString('id-ID')}</td>
             <td style="font-weight: 500;">Rp ${parseFloat(tx.transaction_amount).toLocaleString('id-ID')}</td>
@@ -799,7 +796,7 @@ async function exportFilteredToCSV() {
         
         const csvRows = [];
         const headers = [
-            "Transaction_ID", "Customer_ID", "Customer_Name", "Initial_Subsidy", "Transaction_Amount", "Subsidy_Balance",
+            "Customer_ID", "Customer_Name", "Initial_Subsidy", "Transaction_Amount", "Subsidy_Balance",
             "Hour_of_Day", "Num_Items", "Failed_Logins", "Payment_Retry",
             "Risk_Score", "Verdict", "Audit_Status", "Notes"
         ];
@@ -807,9 +804,7 @@ async function exportFilteredToCSV() {
        
         recordsToExport.forEach(tx => {
             const score = tx.final_pct || tx.risk_pct || 0;
-            const txIdStr = tx.transaction_id || ('TX-' + String(tx.id).padStart(4, '0'));
             const row = [
-                txIdStr,
                 tx.customer_id,
                 `"${tx.customer_name || 'Seeded Member'}"`,
                 tx.Initial_Subsidy,
@@ -1274,7 +1269,7 @@ async function applyTransactionAudit(decision, btnEl = null) {
             body: JSON.stringify(payload)
         });
         if (json.status === 'success') {
-            showToast("Audit Registered", `Transaction #${activeAuditTarget.id} marked as ${decision.toUpperCase()}`, decision === 'blocked' ? 'critical' : 'success');
+            showToast("Audit Registered", `Customer #${activeAuditTarget.customer_id} marked as ${decision.toUpperCase()}`, decision === 'blocked' ? 'critical' : 'success');
             closeAuditorPanel();
         } else {
             throw new Error(json.message || "Could not save decision.");
@@ -1399,6 +1394,10 @@ function updateAlertBellBadge() {
 }
 
 // ─── RISK SIMULATOR PLAYGROUND LOGIC ─────────────────────────────────────────
+let isScoring = false;
+let isAddingToQueue = false;
+let isGeneratingSynthetic = false;
+
 function updateSliderDisplay(inputEl) {
     const valSpan = document.getElementById(`val-${inputEl.id.replace('sim-', '')}`);
     if (valSpan) {
@@ -1408,6 +1407,17 @@ function updateSliderDisplay(inputEl) {
 }
 
 async function triggerSyntheticGeneration() {
+    if (isGeneratingSynthetic || isScoring) return;
+    isGeneratingSynthetic = true;
+    
+    const btn = document.querySelector('.chart-title button.btn');
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="loading-spinner"></span> Generating...`;
+        btn.disabled = true;
+    }
+    
     try {
         const json = await callApi('/api/generate');
         if (json.status === 'success') {
@@ -1441,20 +1451,34 @@ async function triggerSyntheticGeneration() {
             document.getElementById('sim-channel_kiosk').checked = tx["app(0) vs kiosk(1)transaction"] === 1;
            
             // Trigger score evaluate
-            runManualAnalysis();
+            await runManualAnalysis();
             
-            // Reload all dashboard metrics
-            loadAllData();
-            
-            showToast("Simulation Sync", `Generated database transaction under Customer ID #${tx.customer_id}!`, "success");
+            showToast("Simulation Sync", `Loaded synthetic transaction scenario into form properties.`, "success");
         }
     } catch (e) {
         console.error("Simulator Generation Error: ", e);
         showToast("Error generating scenario", "Backend simulated data unavailable", "critical");
+    } finally {
+        isGeneratingSynthetic = false;
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
 }
 
 async function runManualAnalysis() {
+    if (isScoring) return;
+    isScoring = true;
+    
+    const btn = document.getElementById('btn-evaluate-risk');
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="loading-spinner"></span> Scoring...`;
+        btn.disabled = true;
+    }
+    
     const subsidy = parseFloat(document.getElementById('sim-Initial_Subsidy').value);
     const amount = parseFloat(document.getElementById('sim-transaction_amount').value);
    
@@ -1493,7 +1517,117 @@ async function runManualAnalysis() {
         }
     } catch (e) {
         console.error("Evaluation Error: ", e);
+    } finally {
+        isScoring = false;
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
     }
+}
+
+async function addSimulatedTxToQueue() {
+    if (isAddingToQueue) return;
+    isAddingToQueue = true;
+    
+    const btn = document.getElementById('btn-add-to-queue');
+    let originalHtml = '';
+    if (btn) {
+        originalHtml = btn.innerHTML;
+        btn.innerHTML = `<span class="loading-spinner"></span> Saving...`;
+        btn.disabled = true;
+    }
+    
+    const subsidy = parseFloat(document.getElementById('sim-Initial_Subsidy').value);
+    const amount = parseFloat(document.getElementById('sim-transaction_amount').value);
+   
+    const payload = {
+        Initial_Subsidy: subsidy,
+        transaction_amount: amount,
+        hour_of_day: parseInt(document.getElementById('sim-hour_of_day').value) || 12,
+        num_items: parseInt(document.getElementById('sim-num_items').value) || 1,
+        prev_transactions: parseInt(document.getElementById('sim-prev_transactions').value) || 0,
+        failed_login_attempts: parseInt(document.getElementById('sim-failed_login_attempts').value) || 0,
+        payment_retry_count: parseInt(document.getElementById('sim-payment_retry_count').value) || 0,
+        same_product_transcation_count_month: parseInt(document.getElementById('sim-same_product_transcation_count_month').value) || 0,
+       
+        is_first_transaction: document.getElementById('sim-is_first_transaction').checked ? 1 : 0,
+        "IP address (outside Indonesia )": document.getElementById('sim-ip_outside').checked ? 1 : 0,
+        National_ID_verification: document.getElementById('sim-id_not_verified').checked ? 0 : 1,
+        KKS_card_validation: document.getElementById('sim-kks_not_valid').checked ? 0 : 1,
+        Duplicate_account_detection: document.getElementById('sim-duplicate_account').checked ? 1 : 0,
+        "Transaction frequency (>3 per hour)": document.getElementById('sim-high_frequency').checked ? 1 : 0,
+        valid_card: document.getElementById('sim-card_invalid').checked ? 0 : 1,
+        "repeated_product_purchase(>10)": document.getElementById('sim-repeated_purchase').checked ? 1 : 0,
+        same_device_multiple_accounts: document.getElementById('sim-same_device').checked ? 1 : 0,
+        login_location_changed: document.getElementById('sim-location_changed').checked ? 1 : 0,
+        "app(0) vs kiosk(1)transaction": document.getElementById('sim-channel_kiosk').checked ? 1 : 0
+    };
+    
+    try {
+        const json = await callApi('/api/simulator/add', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (json.status === 'success') {
+            showToast("Scenario Queued", `Simulated transaction successfully added to queue for Customer #${json.customer_id}!`, "success");
+        }
+    } catch (e) {
+        console.error("Queue Adding Error: ", e);
+        showToast("Error adding to queue", "Could not write simulated transaction to database.", "critical");
+    } finally {
+        isAddingToQueue = false;
+        if (btn) {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+}
+
+function resetSimulatorForm() {
+    // 1. Reset inputs
+    document.getElementById('sim-Initial_Subsidy').value = 750000;
+    updateSliderDisplay(document.getElementById('sim-Initial_Subsidy'));
+    
+    document.getElementById('sim-transaction_amount').value = 120000;
+    updateSliderDisplay(document.getElementById('sim-transaction_amount'));
+    
+    document.getElementById('sim-hour_of_day').value = 14;
+    document.getElementById('sim-num_items').value = 2;
+    document.getElementById('sim-prev_transactions').value = 5;
+    document.getElementById('sim-failed_login_attempts').value = 0;
+    document.getElementById('sim-payment_retry_count').value = 0;
+    document.getElementById('sim-same_product_transcation_count_month').value = 2;
+    
+    document.getElementById('sim-is_first_transaction').checked = false;
+    document.getElementById('sim-ip_outside').checked = false;
+    document.getElementById('sim-id_not_verified').checked = false;
+    document.getElementById('sim-kks_not_valid').checked = false;
+    document.getElementById('sim-duplicate_account').checked = false;
+    document.getElementById('sim-high_frequency').checked = false;
+    document.getElementById('sim-card_invalid').checked = false;
+    document.getElementById('sim-repeated_purchase').checked = false;
+    document.getElementById('sim-same_device').checked = false;
+    document.getElementById('sim-location_changed').checked = false;
+    document.getElementById('sim-channel_kiosk').checked = false;
+    
+    // 2. Reset Output Panel
+    const r_reset = {
+        final_pct: 0.0,
+        rule_based_pct: 0.0,
+        ai_prob: 0.0,
+        verdict: "Transaction details are clean and verified.",
+        flags: {
+            "flag_ip_outsider": 0, "flag_repeated_purchase": 0, "flag_high_frequency": 0, "flag_duplicate_account": 0,
+            "flag_same_device": 0, "flag_location_changed": 0, "flag_same_product_high": 0, "flag_payment_retry": 0,
+            "flag_failed_login": 0, "flag_id_not_verified": 0, "flag_kks_not_valid": 0, "flag_card_invalid": 0,
+            "flag_subsidy_exhausted": 0, "flag_kiosk": 0
+        },
+        triggered_combos: []
+    };
+    updateSimulatorOutput(r_reset);
+    showToast("Simulator Reset", "Cleared manual properties and output analysis.", "success");
 }
 
 function updateSimulatorOutput(r) {
@@ -2197,6 +2331,27 @@ function getAlertExtraDetails(alt) {
     };
 }
 
+async function openAuditorPanelForAlertTx(txId) {
+    let tx = allTransactions.find(t => t.id === txId);
+    if (!tx) {
+        try {
+            const json = await callApi('/api/transactions?limit=-1');
+            if (json.status === 'success') {
+                allTransactions = json.transactions;
+                tx = allTransactions.find(t => t.id === txId);
+            }
+        } catch (e) {
+            console.error("Failed to fetch transaction for auditor panel:", e);
+        }
+    }
+    
+    if (tx) {
+        openAuditorPanel(tx, 'transaction');
+    } else {
+        showToast("Transaction Not Found", `Could not load transaction details for ID #${txId}.`, "critical");
+    }
+}
+
 function renderAuditDocTable(alertsList) {
     const tbody = document.getElementById('audit-doc-table-body');
     if (!tbody) return;
@@ -2209,7 +2364,7 @@ function renderAuditDocTable(alertsList) {
     const pageRecords = alertsList.slice(startIndex, endIndex);
 
     if (pageRecords.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 20px; color:var(--text-muted);">No matching alerts found</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 20px; color:var(--text-muted);">No matching alerts found</td></tr>';
         
         const infoEl = document.getElementById('audit-doc-pagination-info-text');
         if (infoEl) infoEl.textContent = 'Showing 0 to 0 of 0 alerts';
@@ -2242,7 +2397,6 @@ function renderAuditDocTable(alertsList) {
         tr.innerHTML = `
             <td style="font-family: monospace; font-weight: 600; color: var(--text-primary);">${alt.alert_id}</td>
             <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
-            <td style="font-family: monospace;">${details.txId}</td>
             <td>#${alt.customer_id} ${alt.customer_name}</td>
             <td style="font-weight: 700;">${alt.risk_score}%</td>
             <td><span class="badge ${badgeClass}"><span class="badge-dot"></span>${alt.severity_level}</span></td>
@@ -2361,11 +2515,22 @@ function toggleAlertRowDetails(id, tr) {
     };
     const mappedFlags = alt.indicators.map(f => flagLabelsMap[f] || f).join(' | ');
 
+    let reviewNowHTML = '';
+    if (alt.status === 'Open' && alt.target_type === 'transaction') {
+        reviewNowHTML = `
+            <div style="margin-top: 10px;">
+                <button class="btn btn-review" onclick="openAuditorPanelForAlertTx(${alt.target_id})" style="padding: 6px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+                    <i data-lucide="eye" style="width:12px; height:12px;"></i> Review Now
+                </button>
+            </div>
+        `;
+    }
+
     // Create the details row
     const detailsTr = document.createElement('tr');
     detailsTr.className = 'alert-details-row';
     detailsTr.innerHTML = `
-        <td colspan="10">
+        <td colspan="9">
             <div class="alert-details-container">
                 <div class="details-grid">
                     <div class="detail-block">
@@ -2380,6 +2545,7 @@ function toggleAlertRowDetails(id, tr) {
                         <div class="detail-content">
                             <strong>Amount:</strong> ${details.amount} &nbsp;•&nbsp; 
                             <strong>Recommended Action:</strong> <span style="font-style: italic;">${alt.recommended_action}</span>
+                            ${reviewNowHTML}
                         </div>
                     </div>
                     
@@ -2474,7 +2640,6 @@ function exportDocAlertsToPDF() {
         tr.innerHTML = `
             <td style="font-family: monospace;">${alt.alert_id}</td>
             <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
-            <td style="font-family: monospace;">${details.txId}</td>
             <td>#${alt.customer_id} ${alt.customer_name}</td>
             <td>${alt.risk_score}%</td>
             <td>${alt.severity_level}</td>
@@ -2505,7 +2670,6 @@ function exportDocAlertsToDOCX() {
             <tr>
                 <td style="font-family: monospace;">${alt.alert_id}</td>
                 <td>${new Date(alt.detection_timestamp).toLocaleString('id-ID')}</td>
-                <td style="font-family: monospace;">${details.txId}</td>
                 <td>#${alt.customer_id} ${alt.customer_name}</td>
                 <td>${alt.risk_score}%</td>
                 <td>${alt.severity_level}</td>
@@ -2540,7 +2704,6 @@ function exportDocAlertsToDOCX() {
                     <tr>
                         <th>Alert ID</th>
                         <th>Date/Time</th>
-                        <th>Transaction ID</th>
                         <th>Customer ID/Name</th>
                         <th>Risk Score</th>
                         <th>Risk Level</th>
@@ -2579,7 +2742,7 @@ function exportDocAlertsToCSV() {
     }
     
     const headers = [
-        "Alert ID", "Date/Time", "Transaction ID", "Customer ID/Name", 
+        "Alert ID", "Date/Time", "Customer ID/Name", 
         "Risk Score", "Risk Level", "Triggered Combo Rule ID", 
         "Triggered Combo Rule Name", "Triggered Indicators", 
         "Transaction Amount", "Status", "Action Taken", "Audit Notes"
@@ -2592,7 +2755,6 @@ function exportDocAlertsToCSV() {
         const row = [
             alt.alert_id,
             new Date(alt.detection_timestamp).toLocaleString('id-ID'),
-            details.txId,
             `#${alt.customer_id} ${alt.customer_name}`,
             alt.risk_score + "%",
             alt.severity_level,

@@ -34,11 +34,10 @@ class TestTransactionsPagination(unittest.TestCase):
         # Verify limit of 12 rows
         self.assertLessEqual(len(data["rows"]), 12)
         
-        # Verify transaction_id format for every row
+        # Verify transaction_id is NOT in the row, and customer_id is present
         for row in data["rows"]:
-            self.assertIn("transaction_id", row)
-            self.assertTrue(row["transaction_id"].startswith("TX-"))
-            self.assertEqual(len(row["transaction_id"]), 7) # TX-0001 is 7 characters
+            self.assertNotIn("transaction_id", row)
+            self.assertIn("customer_id", row)
 
     def test_limit_all(self):
         # Fetch with limit=-1
@@ -50,20 +49,20 @@ class TestTransactionsPagination(unittest.TestCase):
         self.assertEqual(len(data["rows"]), data["total_records"])
         self.assertEqual(data["total_pages"], 1)
 
-    def test_searching_by_transaction_id(self):
-        # 1. Get first transaction ID from database
+    def test_searching_by_customer_id(self):
+        # 1. Get first customer ID from database
         res_all = self.app.get("/api/transactions?limit=1", headers=self.headers)
         self.assertEqual(res_all.status_code, 200)
         first_tx = res_all.get_json()["rows"][0]
-        tx_id_str = first_tx["transaction_id"]
+        cust_id = first_tx["customer_id"]
         
-        # 2. Search for that specific transaction ID
-        res_search = self.app.get(f"/api/transactions?search={tx_id_str}", headers=self.headers)
+        # 2. Search for that specific customer ID
+        res_search = self.app.get(f"/api/transactions?search={cust_id}", headers=self.headers)
         self.assertEqual(res_search.status_code, 200)
         search_rows = res_search.get_json()["rows"]
         
         self.assertGreaterEqual(len(search_rows), 1)
-        self.assertEqual(search_rows[0]["transaction_id"], tx_id_str)
+        self.assertEqual(search_rows[0]["customer_id"], cust_id)
 
     def test_filtering_and_sorting(self):
         # 1. Risk Level Filter

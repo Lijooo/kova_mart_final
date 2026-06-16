@@ -170,6 +170,297 @@ def home():
     return render_template('index.html')
 
 
+# ─── API: DASHBOARD DATA (UNIFIED) ───────────────────────────────────────────
+_dashboard_cache = None
+_dashboard_cache_lock = threading.Lock()
+
+def clear_dashboard_cache():
+    global _dashboard_cache
+    with _dashboard_cache_lock:
+        _dashboard_cache = None
+    if 'engine' in globals():
+        engine.scored_rows = None
+
+class KovaMartEngine:
+    @staticmethod
+    def generate_one_transaction():
+        return final.generate_one_transaction()
+
+class EngineRows(list):
+    def __init__(self, engine_inst):
+        super().__init__()
+        self.engine = engine_inst
+        
+    def append(self, tx):
+        tx_out, score, alert_id = generate_and_score_transaction_internal(tx)
+        c_id = tx_out.get("Name/customer_id", 999)
+        self.engine.generator_status["generated_count"] += 1
+        self.engine.generator_status["last_generated_customer_id"] = c_id
+        self.engine.generator_status["last_generated_at"] = datetime.now().isoformat()
+        self.engine.scored_rows = None
+        clear_dashboard_cache()
+
+class Engine:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.scored_rows = None
+        self.rows = EngineRows(self)
+        
+        env_enabled = os.environ.get("ENABLE_BACKGROUND_GENERATOR", "false").lower() == "true"
+        try:
+            env_interval = float(os.environ.get("BACKGROUND_GENERATOR_INTERVAL", "30"))
+        except Exception:
+            env_interval = 30.0
+            
+        self.generator_status = {
+            "enabled": env_enabled,
+            "interval_seconds": env_interval,
+            "generated_count": 0,
+            "last_generated_customer_id": None,
+            "last_generated_at": None
+        }
+
+engine = Engine()
+
+@app.route('/api/dashboard', methods=['GET'])
+@require_auth
+def get_dashboard_data():
+    global _dashboard_cache
+    
+    reload_arg = request.args.get('reload', '').lower() == 'true'
+    if reload_arg:
+        clear_dashboard_cache()
+        
+    with engine.lock:
+        if engine.scored_rows is not None:
+            res_data = dict(engine.scored_rows)
+            res_data["background_generator"] = engine.generator_status
+            return jsonify(res_data)
+            
+    try:
+        conn = database.get_db_connection()
+        cursor = conn.cursor()
+        
+        # 1. Fetch the last 1500 transactions joining with members and risk_scores
+        # Using a CTE to limit transactions first to ensure we work on the active 1,500 records
+        cursor.execute("""
+            WITH active_tx AS (
+                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
+            )
+            SELECT t.*, m.name as customer_name, m.verification_status, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level, r.triggered_flags, r.triggered_combos
+            FROM active_tx t
+            LEFT JOIN members m ON t.customer_id = m.id
+            LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
+            ORDER BY t.id DESC
+        """)
+        db_rows = cursor.fetchall()
+        
+        # Prefetch logs only for the retrieved transaction IDs in these 1500
+        tx_ids = [r["id"] for r in db_rows]
+        logs_by_tx = {}
+        if tx_ids:
+            placeholders = ",".join(["?"] * len(tx_ids))
+            cursor.execute(f"""
+                SELECT target_id, action, note, timestamp 
+                FROM audit_logs 
+                WHERE target_type = 'transaction' AND target_id IN ({placeholders}) 
+                ORDER BY id DESC
+            """, tx_ids)
+            logs_rows = cursor.fetchall()
+            for log in logs_rows:
+                tx_id = log["target_id"]
+                if tx_id not in logs_by_tx:
+                    logs_by_tx[tx_id] = []
+                logs_by_tx[tx_id].append({
+                    "action": log["action"],
+                    "note": log["note"],
+                    "timestamp": log["timestamp"]
+                })
+                
+        # Format the rows exactly matching /api/transactions schema
+        records = []
+        for r in db_rows:
+            rec = dict(r)
+            rec["auditHistory"] = logs_by_tx.get(r["id"], [])
+            rec["risk_pct"] = r["final_pct"] if r["final_pct"] is not None else 0.0
+            rec["Initial_Subsidy"] = r["initial_subsidy"]
+            rec["Subsidy_balance"] = r["subsidy_balance"]
+            rec["IP address (outside Indonesia )"] = r["ip_outside_indonesia"]
+            rec["app(0) vs kiosk(1)transaction"] = r["app_vs_kiosk"]
+            rec["repeated_product_purchase(>10)"] = r["repeated_product_purchase"]
+            rec["same_product_transcation_count_month"] = r["same_product_transaction_count_month"]
+            
+            # Remove transaction_id if present
+            if "transaction_id" in rec:
+                del rec["transaction_id"]
+                
+            records.append(clean_numpy(rec))
+            
+        # 2. Calculate summary metrics on the active 1,500 subset
+        total_tx = len(db_rows)
+        fraud_tx = sum(1 for r in db_rows if r["status"] in ('blocked', 'review'))
+        legit_tx = total_tx - fraud_tx
+        
+        # Rule-based flag rate: percentage of transactions flagged by rules (final_pct >= 40)
+        flagged_tx = sum(1 for r in db_rows if (r["final_pct"] or 0) >= 40)
+        fraud_rate_pct = round((flagged_tx / total_tx) * 100, 2) if total_tx > 0 else 0.0
+        
+        avg_risk = np.mean([r["final_pct"] or 0.0 for r in db_rows]) if total_tx > 0 else 0.0
+        
+        unique_members = set(r["customer_id"] for r in db_rows)
+        total_members = len(unique_members)
+        
+        # Flagged members in these active 1500 (who are 'Flagged' or 'Under Review')
+        flagged_members = len(set(r["customer_id"] for r in db_rows if r["verification_status"] in ('Flagged', 'Under Review')))
+        active_members = total_members - flagged_members
+        
+        # 3. Alerts stats for the active 1,500 subset
+        if tx_ids:
+            placeholders = ",".join(["?"] * len(tx_ids))
+            cursor.execute(f"""
+                SELECT COUNT(*),
+                       SUM(CASE WHEN severity_level = 'Critical' AND status != 'Resolved' THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN status != 'Resolved' THEN 1 ELSE 0 END)
+                FROM alerts
+                WHERE target_type = 'transaction' AND target_id IN ({placeholders})
+            """, tx_ids)
+            alert_stats = cursor.fetchone()
+            total_alerts = alert_stats[0] if alert_stats else 0
+            critical_alerts = alert_stats[1] if alert_stats and alert_stats[1] is not None else 0
+            unresolved_alerts = alert_stats[2] if alert_stats and alert_stats[2] is not None else 0
+        else:
+            total_alerts = 0
+            critical_alerts = 0
+            unresolved_alerts = 0
+            
+        # 4. Risk distribution
+        critical_count = sum(1 for r in db_rows if (r["final_pct"] or 0) >= 80)
+        high_count = sum(1 for r in db_rows if 55 <= (r["final_pct"] or 0) < 80)
+        medium_count = sum(1 for r in db_rows if 40 <= (r["final_pct"] or 0) < 55)
+        low_count = sum(1 for r in db_rows if (r["final_pct"] or 0) < 40)
+        
+        # 5. Top flags counts
+        flag_labels = {
+            "flag_ip_outsider":       "Foreign IP Address",
+            "flag_repeated_purchase": "Repeated Product Purchase >10",
+            "flag_high_frequency":    "Transaction Frequency >3/hr",
+            "flag_duplicate_account": "Duplicate Account Detected",
+            "flag_same_device":       "Same Device Multiple Accounts",
+            "flag_location_changed":  "Login Location Changed",
+            "flag_same_product_high": "Same Product Count >5/month",
+            "flag_payment_retry":     "Payment Retry >= 3",
+            "flag_failed_login":      "Failed Login Attempts >= 3",
+            "flag_id_not_verified":   "National ID Not Verified",
+            "flag_kks_not_valid":     "KKS Card Invalid",
+            "flag_card_invalid":      "Card Not Valid",
+            "flag_subsidy_exhausted": "Subsidy Used > 900,000",
+            "flag_kiosk":             "App Transaction"
+        }
+        
+        labeled_flags = {label: 0 for label in flag_labels.values()}
+        combinations_counts = {f"C{i}": 0 for i in range(1, 14)}
+        
+        for r in db_rows:
+            # Parse flags
+            flags = json.loads(r["triggered_flags"]) if r["triggered_flags"] else []
+            for f in flags:
+                label = flag_labels.get(f, f)
+                if label in labeled_flags:
+                    labeled_flags[label] += 1
+                else:
+                    labeled_flags[label] = 1
+            
+            # Parse combinations
+            combos = json.loads(r["triggered_combos"]) if r["triggered_combos"] else []
+            for c in combos:
+                if c in combinations_counts:
+                    combinations_counts[c] += 1
+                    
+        # 6. Recent registrations (last 5 overall members in the DB)
+        cursor.execute("SELECT * FROM members ORDER BY id DESC LIMIT 5")
+        recent_m_rows = cursor.fetchall()
+        recent_members = []
+        for rm in recent_m_rows:
+            recent_members.append(mask_sensitive_data({
+                "id": rm["id"],
+                "name": rm["name"],
+                "nik": rm["nik"],
+                "phone": rm["phone"],
+                "verification_status": rm["verification_status"],
+                "registration_date": rm["registration_date"]
+            }))
+            
+        # 7. Recent fraud alerts (last 5 overall alerts in the DB)
+        cursor.execute("SELECT * FROM alerts ORDER BY id DESC LIMIT 5")
+        recent_a_rows = cursor.fetchall()
+        recent_alerts = []
+        for ra in recent_a_rows:
+            recent_alerts.append({
+                "id": ra["id"],
+                "alert_id": ra["alert_id"],
+                "customer_name": ra["customer_name"],
+                "customer_id": ra["customer_id"],
+                "risk_score": ra["risk_score"],
+                "severity_level": ra["severity_level"],
+                "status": ra["status"],
+                "detection_timestamp": ra["detection_timestamp"],
+                "fraud_indicators_triggered": json.loads(ra["fraud_indicators_triggered"])
+            })
+            
+        conn.close()
+        
+        dashboard_response = {
+            "status": "success",
+            "rows": records,
+            "summary": {
+                "metrics": {
+                    "total_transactions":  total_tx,
+                    "fraud_detected":      fraud_tx,
+                    "legit_transactions":  legit_tx,
+                    "average_risk_score":  round(float(avg_risk), 2),
+                    "fraud_rate_pct":      round(float(fraud_rate_pct), 2),
+                    "total_members":       total_members,
+                    "active_members":      active_members,
+                    "flagged_members":     flagged_members,
+                    "total_alerts":        total_alerts,
+                    "critical_alerts":     critical_alerts,
+                    "unresolved_alerts":   unresolved_alerts
+                },
+                "risk_distribution": {
+                    "Critical": critical_count,
+                    "High":     high_count,
+                    "Medium":   medium_count,
+                    "Low":      low_count
+                },
+                "top_flags": labeled_flags,
+                "recent_registrations": recent_members,
+                "recent_alerts": recent_alerts
+            },
+            "chart_data": {
+                "risk_distribution": {
+                    "Critical": critical_count,
+                    "High":     high_count,
+                    "Medium":   medium_count,
+                    "Low":      low_count
+                }
+            },
+            "combinations": combinations_counts,
+            "model_status": "Loaded" if hasattr(final, 'model') else "Not Loaded",
+            "dataset_path": final.DATA_PATH,
+            "background_generator": engine.generator_status
+        }
+        
+        engine.scored_rows = dashboard_response
+        global _dashboard_cache
+        _dashboard_cache = dashboard_response
+            
+        return jsonify(dashboard_response)
+        
+    except Exception as e:
+        traceback.print_exc()
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
 # ─── API: DASHBOARD STATISTICS ───────────────────────────────────────────────
 @app.route('/api/stats', methods=['GET'])
 @require_auth
@@ -453,18 +744,9 @@ def get_transactions():
         cursor.execute(f"""
             WITH dashboard_tx AS (
                 SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            ),
-            latest_tx AS (
-                SELECT t.*
-                FROM dashboard_tx t
-                INNER JOIN (
-                    SELECT customer_id, MAX(id) as max_id
-                    FROM dashboard_tx
-                    GROUP BY customer_id
-                ) l ON t.id = l.max_id
             )
             SELECT COUNT(*)
-            FROM latest_tx t
+            FROM dashboard_tx t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}
@@ -499,18 +781,9 @@ def get_transactions():
         sql_query = f"""
             WITH dashboard_tx AS (
                 SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            ),
-            latest_tx AS (
-                SELECT t.*
-                FROM dashboard_tx t
-                INNER JOIN (
-                    SELECT customer_id, MAX(id) as max_id
-                    FROM dashboard_tx
-                    GROUP BY customer_id
-                ) l ON t.id = l.max_id
             )
             SELECT t.*, m.name as customer_name, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level
-            FROM latest_tx t
+            FROM dashboard_tx t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}
@@ -755,6 +1028,7 @@ def handle_members():
                 
                 conn.commit()
                 conn.close()
+                clear_dashboard_cache()
                 database.sync_all_documentation()
                 
                 return jsonify({
@@ -834,6 +1108,7 @@ def handle_members():
                 
             conn.commit()
             conn.close()
+            clear_dashboard_cache()
             
             # Sync to markdown documents
             database.sync_all_documentation()
@@ -947,6 +1222,7 @@ def resolve_alert(alert_db_id):
                 
         conn.commit()
         conn.close()
+        clear_dashboard_cache()
         
         # Sync to markdown documents
         database.sync_all_documentation()
@@ -1007,6 +1283,7 @@ def audit_transaction():
             
         conn.commit()
         conn.close()
+        clear_dashboard_cache()
         
         # Sync to markdown documents
         database.sync_all_documentation()
@@ -1124,24 +1401,37 @@ def save_to_csv_log(tx, score, level, verdict, alert_id=None):
             writer.writeheader()
         writer.writerow(row)
 
-def generate_and_score_transaction_internal():
-    tx = final.generate_one_transaction()
+def generate_and_score_transaction_internal(tx=None):
+    if tx is None:
+        tx = final.generate_one_transaction()
     
     conn = database.get_db_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT id, name, ip_address, device_info FROM members ORDER BY RANDOM() LIMIT 1")
-    member = cursor.fetchone()
     
-    if member:
-        c_id = member["id"]
-        name = member["name"]
-        tx["Name/customer_id"] = c_id
-        is_outside = 1 if not member["ip_address"].startswith("180.250.") else 0
-        tx["IP address (outside Indonesia )"] = is_outside
+    if "Name/customer_id" in tx:
+        c_id = tx["Name/customer_id"]
+        cursor.execute("SELECT name, ip_address FROM members WHERE id = ?", (c_id,))
+        member = cursor.fetchone()
+        if member:
+            name = member["name"]
+            is_outside = 1 if not member["ip_address"].startswith("180.250.") else 0
+            tx["IP address (outside Indonesia )"] = is_outside
+        else:
+            name = f"Customer {c_id}"
     else:
-        c_id = 999
-        name = "Default Customer"
-        tx["Name/customer_id"] = c_id
+        cursor.execute("SELECT id, name, ip_address, device_info FROM members ORDER BY RANDOM() LIMIT 1")
+        member = cursor.fetchone()
+        
+        if member:
+            c_id = member["id"]
+            name = member["name"]
+            tx["Name/customer_id"] = c_id
+            is_outside = 1 if not member["ip_address"].startswith("180.250.") else 0
+            tx["IP address (outside Indonesia )"] = is_outside
+        else:
+            c_id = 999
+            name = "Default Customer"
+            tx["Name/customer_id"] = c_id
         
     res = final.score_transaction(tx)
     score = res["final_pct"]
@@ -1235,6 +1525,7 @@ def generate_and_score_transaction_internal():
         
     conn.commit()
     conn.close()
+    clear_dashboard_cache()
     
     # Sync documentation
     database.sync_all_documentation()
@@ -1479,6 +1770,7 @@ def simulator_add_tx():
 
         conn.commit()
         conn.close()
+        clear_dashboard_cache()
 
         # Sync documentation
         database.sync_all_documentation()
@@ -1995,6 +2287,7 @@ def post_checkout():
             return jsonify({"status": "error", "message": f"Checkout processing failed: {str(e_commit)}"}), 400
         finally:
             conn.close()
+            clear_dashboard_cache()
             database.sync_all_documentation()
             
         return jsonify({
@@ -2096,7 +2389,7 @@ def generator_loop():
         
     while True:
         # Check if background generator is enabled
-        enabled = os.environ.get("ENABLE_BACKGROUND_GENERATOR", "false").lower() == "true"
+        enabled = engine.generator_status["enabled"]
         
         # Check PID lock to prevent duplicate threads in multi-worker environments
         try:
@@ -2111,22 +2404,45 @@ def generator_loop():
             
         if enabled:
             try:
-                generate_and_score_transaction_internal()
+                with engine.lock:
+                    # Every interval, generate one transaction using existing KovaMartEngine.generate_one_transaction()
+                    tx = KovaMartEngine.generate_one_transaction()
+                    # Append the generated transaction to engine.rows
+                    engine.rows.append(tx)
+                    # Clear cached scored rows
+                    engine.scored_rows = None
             except Exception as e:
                 print(f"[Background Generator] Error generating transaction: {e}")
                 traceback.print_exc()
                 
         # Read interval dynamically
-        try:
-            interval = float(os.environ.get("BACKGROUND_GENERATOR_INTERVAL", "30"))
-        except Exception:
-            interval = 30.0
-            
+        interval = engine.generator_status["interval_seconds"]
         time.sleep(interval)
 
 def start_background_generator():
     t = threading.Thread(target=generator_loop, daemon=True)
     t.start()
+
+# Safe start of background generator thread using before_request hook + PID lock check
+_generator_started = False
+_generator_start_lock = threading.Lock()
+
+@app.before_request
+def start_generator_on_first_request():
+    global _generator_started
+    if not _generator_started:
+        with _generator_start_lock:
+            if not _generator_started:
+                if engine.generator_status["enabled"]:
+                    start_background_generator()
+                _generator_started = True
+
+@app.route('/api/status', methods=['GET'])
+def get_status_api():
+    return jsonify({
+        "status": "success",
+        "background_generator": engine.generator_status
+    })
 
 # Start background generator only if explicitly enabled (prevents thread deadlocks on Gunicorn/Render startup)
 if os.environ.get("ENABLE_BACKGROUND_GENERATOR", "false").lower() == "true":

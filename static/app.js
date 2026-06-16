@@ -111,6 +111,7 @@ async function fetchWithTimeout(resource, options = {}) {
 
 async function callApi(endpoint, options = {}) {
     const url = getApiUrl(endpoint);
+    const silent = options.silent || false;
     try {
         const response = await fetchWithTimeout(url, options);
         
@@ -124,10 +125,16 @@ async function callApi(endpoint, options = {}) {
         }
         
         const data = await response.json();
-        handleConnectionSuccess();
+        if (!silent) {
+            handleConnectionSuccess();
+        }
         return data;
     } catch (err) {
-        showConnectionError(err);
+        if (!silent) {
+            showConnectionError(err);
+        } else {
+            console.warn("[Silent API Error]:", err);
+        }
         throw err;
     }
 }
@@ -408,25 +415,61 @@ function switchView(viewName) {
     }
 }
 
+function resetDashboardState() {
+    allTransactions = [];
+    filteredTransactions = [];
+    allAlerts = [];
+    filteredAlerts = [];
+    statsData = {};
+    
+    // Reset stats elements to loading state
+    const elements = [
+        'stats-total-tx', 'stats-avg-risk', 'stats-fraud-rate', 
+        'stats-fraud-detected', 'stats-total-members', 
+        'stats-active-members', 'stats-flagged-members', 
+        'stats-critical-alerts'
+    ];
+    elements.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '...';
+    });
+    
+    // Destroy charts if they exist
+    if (chartRiskDist) {
+        chartRiskDist.destroy();
+        chartRiskDist = null;
+    }
+    if (chartFraudTrend) {
+        chartFraudTrend.destroy();
+        chartFraudTrend = null;
+    }
+}
+
 // Fetch all initial data from backend APIs
 async function loadAllData() {
     try {
-        // 1. Fetch Stats API
-        const statsJson = await callApi('/api/stats');
-        statsData = statsJson;
-        await fetchAlerts(true);
-        updateOverviewStats();
-        updateDashboardRecentActivity(statsJson);
-        checkForNewAlerts(statsJson.recent_alerts);
-       
-        // 2. Fetch Transactions API
-        const txJson = await callApi('/api/transactions?limit=-1');
-        allTransactions = txJson.transactions;
-        fetchOperationsPage(); // Initial filter & sort for operations table
-        renderAllCharts();    // Build visual graphics
+        resetDashboardState();
+        
+        // Fetch Unified Dashboard Data
+        const dashboardJson = await callApi('/api/dashboard');
+        
+        if (dashboardJson.status === 'success') {
+            statsData = dashboardJson.summary;
+            allTransactions = dashboardJson.rows;
+            
+            await fetchAlerts(true);
+            updateOverviewStats();
+            updateDashboardRecentActivity(statsData);
+            checkForNewAlerts(statsData.recent_alerts);
+            
+            fetchOperationsPage(); // Initial filter & sort for operations table
+            renderAllCharts();    // Build visual graphics
+        }
     } catch (e) {
         console.error("Error loading dashboard data: ", e);
-        showToast("Error loading system metrics", "Could not connect to Flask API server.", "critical");
+        if (isConnected) {
+            showToast("Error loading system metrics", "Could not connect to Flask API server.", "critical");
+        }
     }
 }
 
@@ -591,22 +634,51 @@ function updateDashboardRecentActivity(statsJson) {
     }
 }
 
-// Background Database Poller (Runs every 10 seconds)
+// Background Database Poller (Runs every 30 seconds)
 function startDatabasePoller() {
-    pollingInterval = setInterval(() => {
-        loadAllData();
+    pollingInterval = setInterval(async () => {
+        try {
+            const dashboardJson = await callApi('/api/dashboard', { silent: true });
+            if (dashboardJson.status === 'success') {
+                const newMetrics = dashboardJson.summary.metrics;
+                const oldMetrics = statsData.metrics;
+                
+                const newRows = dashboardJson.rows;
+                const latestNewId = newRows && newRows.length > 0 ? newRows[0].id : 0;
+                const latestOldId = allTransactions && allTransactions.length > 0 ? allTransactions[0].id : 0;
+                
+                const hasChanged = !oldMetrics || 
+                                   latestNewId !== latestOldId ||
+                                   newMetrics.unresolved_alerts !== oldMetrics.unresolved_alerts;
+                
+                if (hasChanged) {
+                    statsData = dashboardJson.summary;
+                    allTransactions = dashboardJson.rows;
+                    
+                    await fetchAlerts(true);
+                    updateOverviewStats();
+                    updateDashboardRecentActivity(statsData);
+                    checkForNewAlerts(statsData.recent_alerts);
+                    
+                    fetchOperationsPage();
+                    renderAllCharts();
+                }
+            }
+        } catch (e) {
+            console.error("Poller background update error:", e);
+        }
         // If Alert Audit Document is currently visible, refresh alerts in background
         const auditDocView = document.getElementById('view-audit-doc');
         if (auditDocView && auditDocView.classList.contains('active')) {
             fetchAlerts(true);
         }
-    }, 10000);
+    }, 30000);
 }
 
 // ─── ALERTS CENTER INCIDENTS VIEW ────────────────────────────────────────────
 async function fetchAlerts(silent = false) {
     try {
-        const json = await callApi('/api/alerts');
+        const json = await callApi('/api/alerts', { silent: silent });
         if (json.status === 'success') {
             allAlerts = json.alerts;
             
@@ -2157,8 +2229,8 @@ function renderAllCharts() {
 
 // ─── TOAST NOTIFICATIONS ─────────────────────────────────────────────────────
 function showToast(title, desc, type = 'success') {
-    // Suppress duplicate critical error messages when connection is offline
-    if (!isConnected && type === 'critical' && (title.toLowerCase().includes('connection') || title.toLowerCase().includes('error') || desc.toLowerCase().includes('unreachable') || desc.toLowerCase().includes('failed'))) {
+    // Suppress all critical error messages when connection is offline to prevent repeated error notifications
+    if (!isConnected && type === 'critical') {
         return;
     }
     const container = document.getElementById('global-toast-container');

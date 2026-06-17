@@ -54,16 +54,11 @@
                             <i data-lucide="file-up"></i>
                             <span>Batch Upload</span>
                         </button>
+                    </li>
                     <li>
                         <button class="menu-item-btn" onclick="switchView('reports')">
                             <i data-lucide="clipboard-list"></i>
                             <span>Compliance Reports</span>
-                        </button>
-                    </li>
-                    <li>
-                        <button class="menu-item-btn" onclick="switchView('checkout')">
-                            <i data-lucide="credit-card"></i>
-                            <span>Payment Gateway</span>
                         </button>
                     </li>
                 </ul>
@@ -848,129 +843,6 @@
                 </div>
             </section>
 
-            <!-- VIEW 7: PAYMENT SECURITY GATEWAY -->
-            <section id="view-checkout" class="view-container">
-                <div class="checkout-layout">
-                    
-                    <!-- Left Panel: Scenario Selection -->
-                    <div class="glass-panel" style="padding: 24px;">
-                        <div class="detail-section-title" style="margin-bottom: 20px;">Choose Transaction Risk Scenario</div>
-                        
-                        <div class="checkout-scenarios">
-                            <!-- Low Risk Scenario Card -->
-                            <div class="scenario-card scenario-low active" onclick="selectCheckoutScenario('low')">
-                                <div class="scenario-icon">🟢</div>
-                                <div class="scenario-details">
-                                    <div class="scenario-title">
-                                        Low Risk Scenario
-                                        <span class="scenario-badge" style="background: rgba(0,230,118,0.15); color: var(--color-legit);">Low</span>
-                                    </div>
-                                    <div class="scenario-desc">Normal customer, local IP, verified identity, normal shopping amount. Approved automatically.</div>
-                                </div>
-                            </div>
-                            
-                            <!-- Medium Risk Scenario Card -->
-                            <div class="scenario-card scenario-medium" onclick="selectCheckoutScenario('medium')">
-                                <div class="scenario-icon">🟡</div>
-                                <div class="scenario-details">
-                                    <div class="scenario-title">
-                                        Medium Risk Scenario
-                                        <span class="scenario-badge" style="background: rgba(255,183,77,0.15); color: var(--color-medium);">Medium</span>
-                                    </div>
-                                    <div class="scenario-desc">Suspicious retry patterns (3 payment retries). Holds payment and prompts for manual auditor review.</div>
-                                </div>
-                            </div>
-                            
-                            <!-- High/Critical Risk Scenario Card -->
-                            <div class="scenario-card scenario-high" onclick="selectCheckoutScenario('high')">
-                                <div class="scenario-icon">🔴</div>
-                                <div class="scenario-details">
-                                    <div class="scenario-title">
-                                        High/Critical Risk Scenario
-                                        <span class="scenario-badge" style="background: rgba(255,23,68,0.15); color: var(--color-critical);">High</span>
-                                    </div>
-                                    <div class="scenario-desc">Identity mismatches (unverified NIK, invalid KKS card), and IP address outside Indonesia. Blocked automatically.</div>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <div class="form-group" style="margin-bottom: 0;">
-                            <label for="checkout-member-select">Simulate Customer ID Selection</label>
-                            <select id="checkout-member-select" class="form-input" style="background-color: rgba(0,0,0,0.25); border: 1px solid var(--border-color); color: white; padding: 10px; border-radius: 8px; width: 100%;">
-                                <!-- Loaded dynamically from verified members list -->
-                            </select>
-                        </div>
-                    </div>
-                    
-                    <!-- Right Panel: Shopping Cart & Pay -->
-                    <div class="glass-panel" style="padding: 24px; position: relative;">
-                        
-                        <!-- Main Payment Gateway Form Content -->
-                        <div id="checkout-form-content">
-                            <div class="detail-section-title">Kova Mart Shopping Cart & Checkout</div>
-                            
-                            <div class="cart-items-list">
-                                <div class="cart-item">
-                                    <span class="cart-item-name">🌾 Subsidized Rice (5kg)</span>
-                                    <span class="cart-item-price">Rp 60.000</span>
-                                </div>
-                                <div class="cart-item">
-                                    <span class="cart-item-name">🛢️ Subsidized Cooking Oil (2L)</span>
-                                    <span class="cart-item-price">Rp 35.000</span>
-                                </div>
-                                <div class="cart-item">
-                                    <span class="cart-item-name">🍬 Subsidized Sugar (2kg)</span>
-                                    <span class="cart-item-price">Rp 25.000</span>
-                                </div>
-                            </div>
-                            
-                            <div class="cart-total-row">
-                                <span class="cart-total-label">Total Payment Amount</span>
-                                <span class="cart-total-value">Rp 120.000</span>
-                            </div>
-                            
-                            <button id="btn-submit-payment" class="btn" onclick="startCheckoutSimulation()" style="width: 100%; margin-top: 24px; padding: 16px; justify-content: center; font-size: 16px; font-weight: 700;">
-                                <i data-lucide="lock"></i> Pay Rp 120.000
-                            </button>
-                        </div>
-                        
-                        <!-- Risk check loading spinner (estimates remaining time) -->
-                        <div class="checkout-loading-overlay" id="checkout-loading-overlay">
-                            <div class="loader-shield">🛡️</div>
-                            <div class="loader-title">Security Gateway Check</div>
-                            <div class="loader-desc" id="checkout-loader-text">Reviewing transaction risk...</div>
-                            <div class="loader-progress-bar-wrapper">
-                                <div class="loader-progress-bar-fill" id="checkout-progress-fill"></div>
-                            </div>
-                            <div class="loader-timer" id="checkout-loader-timer">Estimated analysis time remaining: 1.5s</div>
-                        </div>
-
-                        <!-- Result Screens (Success & Blocked) -->
-                        <div class="checkout-result-panel" id="checkout-result-success">
-                            <div class="checkout-result-icon">✅</div>
-                            <div class="checkout-result-title" style="color: var(--color-legit);">Payment Approved!</div>
-                            <div class="checkout-result-desc" id="checkout-success-desc">
-                                Transaction saved and approved successfully. Rp 120.000 has been deducted from the subsidy balance.
-                            </div>
-                            <button class="btn btn-secondary" onclick="resetCheckoutView()" style="margin: 0 auto;">
-                                <i data-lucide="shopping-cart"></i> New Transaction
-                            </button>
-                        </div>
-                        
-                        <div class="checkout-result-panel" id="checkout-result-blocked">
-                            <div class="checkout-result-icon">🚫</div>
-                            <div class="checkout-result-title" style="color: var(--color-critical);">Payment Blocked!</div>
-                            <div class="checkout-result-desc" id="checkout-blocked-desc">
-                                Transaction blocked due to possible fraud. High/Critical security threat detected.
-                            </div>
-                            <button class="btn btn-secondary" onclick="resetCheckoutView()" style="margin: 0 auto;">
-                                <i data-lucide="shopping-cart"></i> Return to Cart
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
         </main>
     </div>
 
@@ -1035,37 +907,6 @@
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- CHECKOUT MANUAL AUDITOR REVIEW MODAL -->
-    <div class="checkout-modal-backdrop" id="checkout-review-modal-backdrop">
-        <div class="checkout-modal">
-            <div class="checkout-modal-header">
-                <span style="font-size: 20px;">⚠️</span>
-                <div class="checkout-modal-title">Review Required: Medium Risk Threat Detected</div>
-            </div>
-            
-            <div class="checkout-modal-body">
-                <p>This transaction needs review before continuing.</p>
-                <p style="margin-top: 8px; color: var(--text-secondary);">An auditor must review the transaction parameters and provide a manual decision to allow or reject the payment.</p>
-                
-                <div class="checkout-modal-vectors">
-                    <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Triggered Risk Factors:</div>
-                    <div id="checkout-modal-vectors-list">
-                        <!-- Loaded dynamically -->
-                    </div>
-                </div>
-            </div>
-            
-            <div class="checkout-modal-actions">
-                <button class="btn btn-approve" style="flex: 1; padding: 12px;" onclick="submitManualCheckoutDecision('approved')">
-                    <i data-lucide="check"></i> Approve Payment
-                </button>
-                <button class="btn btn-block-action" style="flex: 1; padding: 12px;" onclick="submitManualCheckoutDecision('blocked')">
-                    <i data-lucide="slash"></i> Reject/Block Payment
-                </button>
             </div>
         </div>
     </div>

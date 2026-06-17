@@ -148,6 +148,7 @@ let statsData = {};
 let autoBlockEnabled = false;
 let pollingInterval = null;
 let maxAlertIdSeen = 0;
+let maxTxIdSeen = 0;
 let lastSeenAlertId = localStorage.getItem('kovamart_last_seen_alert_id') !== null 
                       ? parseInt(localStorage.getItem('kovamart_last_seen_alert_id')) 
                       : null;
@@ -456,6 +457,11 @@ async function loadAllData() {
         if (dashboardJson.status === 'success') {
             statsData = dashboardJson.summary;
             allTransactions = dashboardJson.rows;
+            if (allTransactions && allTransactions.length > 0) {
+                maxTxIdSeen = Math.max(...allTransactions.map(t => t.id));
+            } else {
+                maxTxIdSeen = 0;
+            }
             
             await fetchAlerts(true);
             updateOverviewStats();
@@ -538,24 +544,36 @@ function checkForNewAlerts(recentAlerts) {
         return;
     }
     
-    recentAlerts.forEach(alt => {
-        if (alt.id > maxAlertIdSeen) {
-            maxAlertIdSeen = alt.id;
-            // Trigger toast for new alerts (Open status)
-            if (alt.status === 'Open') {
-                showToast(
-                    `🚨 Security Threat (${alt.severity_level})`,
-                    `Alert ${alt.alert_id} generated for ${alt.customer_name}: ${alt.fraud_indicators_triggered.join(', ')}`,
-                    alt.severity_level.toLowerCase()
-                );
-                
-                const sev = (alt.severity_level || '').toLowerCase();
-                if (sev === 'critical' || sev === 'high') {
-                    playAlertSound(alt.severity_level);
-                }
-            }
+    const currentMax = maxAlertIdSeen;
+    const incomingMaxId = Math.max(...recentAlerts.map(a => a.id));
+    
+    // Process new alerts in chronological order (ascending by ID)
+    const newAlerts = recentAlerts.filter(alt => alt.id > currentMax).sort((a, b) => a.id - b.id);
+    
+    newAlerts.forEach(alt => {
+        if (alt.status === 'Resolved') {
+            showToast(
+                `🚫 Auto-Blocked Threat (${alt.severity_level})`,
+                `Alert ${alt.alert_id} auto-blocked for ${alt.customer_name || 'Customer #' + alt.customer_id}: ${alt.fraud_indicators_triggered.join(', ')}`,
+                alt.severity_level.toLowerCase()
+            );
+        } else {
+            showToast(
+                `🚨 Security Threat (${alt.severity_level})`,
+                `Alert ${alt.alert_id} generated for ${alt.customer_name || 'Customer #' + alt.customer_id}: ${alt.fraud_indicators_triggered.join(', ')}`,
+                alt.severity_level.toLowerCase()
+            );
+        }
+        
+        const sev = (alt.severity_level || '').toLowerCase();
+        if (sev === 'critical' || sev === 'high') {
+            playAlertSound(alt.severity_level);
         }
     });
+    
+    if (incomingMaxId > maxAlertIdSeen) {
+        maxAlertIdSeen = incomingMaxId;
+    }
 }
 
 // Populate stats numbers in dashboard widgets
@@ -652,6 +670,27 @@ function startDatabasePoller() {
                                    newMetrics.unresolved_alerts !== oldMetrics.unresolved_alerts;
                 
                 if (hasChanged) {
+                    // Check for new transactions and show success toasts for approved ones
+                    if (newRows && newRows.length > 0) {
+                        if (maxTxIdSeen === 0) {
+                            maxTxIdSeen = Math.max(...newRows.map(t => t.id));
+                        } else {
+                            const newTxs = newRows.filter(t => t.id > maxTxIdSeen);
+                            if (newTxs.length > 0) {
+                                newTxs.forEach(tx => {
+                                    if (tx.status === 'approved') {
+                                        showToast(
+                                            "✅ Transaction Approved",
+                                            `Transaction for Customer #${tx.customer_id} (${tx.customer_name || 'Unknown'}) of Rp ${tx.amount.toLocaleString()} was approved.`,
+                                            "success"
+                                        );
+                                    }
+                                });
+                                maxTxIdSeen = Math.max(maxTxIdSeen, ...newTxs.map(t => t.id));
+                            }
+                        }
+                    }
+
                     statsData = dashboardJson.summary;
                     allTransactions = dashboardJson.rows;
                     

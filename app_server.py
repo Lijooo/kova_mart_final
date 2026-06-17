@@ -319,8 +319,8 @@ def get_dashboard_data():
             placeholders = ",".join(["?"] * len(tx_ids))
             cursor.execute(f"""
                 SELECT COUNT(*),
-                       SUM(CASE WHEN severity_level = 'Critical' AND status != 'Resolved' THEN 1 ELSE 0 END),
-                       SUM(CASE WHEN status != 'Resolved' THEN 1 ELSE 0 END)
+                       SUM(CASE WHEN UPPER(severity_level) = 'CRITICAL' AND UPPER(status) != 'RESOLVED' THEN 1 ELSE 0 END),
+                       SUM(CASE WHEN UPPER(status) != 'RESOLVED' THEN 1 ELSE 0 END)
                 FROM alerts
                 WHERE target_type = 'transaction' AND target_id IN ({placeholders})
             """, tx_ids)
@@ -483,10 +483,10 @@ def get_stats():
         cursor.execute("SELECT COUNT(*) FROM alerts")
         total_alerts = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM alerts WHERE severity_level = 'Critical' AND status != 'Resolved'")
+        cursor.execute("SELECT COUNT(*) FROM alerts WHERE UPPER(severity_level) = 'CRITICAL' AND UPPER(status) != 'RESOLVED'")
         critical_alerts = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(*) FROM alerts WHERE status != 'Resolved'")
+        cursor.execute("SELECT COUNT(*) FROM alerts WHERE UPPER(status) != 'RESOLVED'")
         unresolved_alerts = cursor.fetchone()[0]
 
         # 3. Transaction stats (limited to the last 1,500 transactions)

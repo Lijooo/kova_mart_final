@@ -4,8 +4,6 @@ This log maintains a complete history of all registered members and their valida
 
 | ID | Name | NIK | Phone Number | KKS Card Number | Registration Date | Status | Device | IP Address |
 |----|------|-----|--------------|-----------------|-------------------|--------|--------|------------|
-| #1002 | Sukardi 746193 | 3273000000746193 | 081200746193 | 1012000000746193 | 2026-06-08T15:45:56.026892 | **Blocked** | Mozilla/5.0 (Windows NT 10.0; Win64; ... | 180.250.2.1 |
-| #1001 | Eko Wijaya | 3273999988880001 | 081299990001 | 1012999988880001 | 2026-06-08T15:43:52.625861 | **Flagged** | Mozilla/5.0 (Windows NT 10.0; Win64; ... | 180.250.2.1 |
 | #1000 | Hadi Suharto | 3273000000001000 | 081200001000 | 1012000000001000 | 2026-05-25T09:35:00Z | **Flagged** | Mozilla/5.0 (Linux; Android 12; Samsu... | 180.250.91.17 |
 | #999 | Agus Nasution | 3273000000000999 | 081200000999 | 1012000000000999 | 2026-05-19T16:41:00Z | **Flagged** | Mozilla/5.0 (Linux; Android 12; Realm... | 180.250.124.34 |
 | #998 | Joko Astuti | 3273000000000998 | 081200000998 | 1012000000000998 | 2026-05-31T17:44:00Z | **Verified** | Mozilla/5.0 (Linux; Android 12; Xiaom... | 180.250.249.123 |

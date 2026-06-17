@@ -241,14 +241,10 @@ def get_dashboard_data():
         conn = database.get_db_connection()
         cursor = conn.cursor()
         
-        # 1. Fetch the last 1500 transactions joining with members and risk_scores
-        # Using a CTE to limit transactions first to ensure we work on the active 1,500 records
+        # 1. Fetch transactions joining with members and risk_scores
         cursor.execute("""
-            WITH active_tx AS (
-                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT t.*, m.name as customer_name, m.verification_status, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level, r.triggered_flags, r.triggered_combos
-            FROM active_tx t
+            FROM transactions t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             ORDER BY t.id DESC
@@ -489,15 +485,12 @@ def get_stats():
         cursor.execute("SELECT COUNT(*) FROM alerts WHERE UPPER(status) != 'RESOLVED'")
         unresolved_alerts = cursor.fetchone()[0]
 
-        # 3. Transaction stats (limited to the last 1,500 transactions)
+        # 3. Transaction stats (overall dataset)
         cursor.execute("""
-            WITH last_1500 AS (
-                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT 
                 COUNT(*),
                 SUM(CASE WHEN status IN ('blocked', 'review') THEN 1 ELSE 0 END)
-            FROM last_1500
+            FROM transactions
         """)
         row_tx = cursor.fetchone()
         total_tx = row_tx[0] if row_tx else 0
@@ -505,28 +498,22 @@ def get_stats():
         legit_tx = total_tx - fraud_tx
 
         cursor.execute("""
-            WITH last_1500 AS (
-                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT AVG(r.final_pct) 
             FROM risk_scores r
-            JOIN last_1500 t ON r.target_id = t.id
+            JOIN transactions t ON r.target_id = t.id
             WHERE r.target_type = 'transaction'
         """)
         avg_risk = cursor.fetchone()[0] or 0.0
 
-        # 4. Risk distribution (limited to the last 1,500 transactions)
+        # 4. Risk distribution (overall dataset)
         cursor.execute("""
-            WITH last_1500 AS (
-                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT 
                 SUM(CASE WHEN r.final_pct >= 80 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN r.final_pct >= 55 AND r.final_pct < 80 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN r.final_pct >= 40 AND r.final_pct < 55 THEN 1 ELSE 0 END),
                 SUM(CASE WHEN r.final_pct < 40 THEN 1 ELSE 0 END)
             FROM risk_scores r
-            JOIN last_1500 t ON r.target_id = t.id
+            JOIN transactions t ON r.target_id = t.id
             WHERE r.target_type = 'transaction'
         """)
         dist_row = cursor.fetchone()
@@ -535,14 +522,11 @@ def get_stats():
         medium_count = dist_row[2] if dist_row and dist_row[2] is not None else 0
         low_count = dist_row[3] if dist_row and dist_row[3] is not None else 0
 
-        # 5. Top flags counts (limited to the last 1,500 transactions)
+        # 5. Top flags counts (overall dataset)
         cursor.execute("""
-            WITH last_1500 AS (
-                SELECT id FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT r.triggered_flags 
             FROM risk_scores r
-            JOIN last_1500 t ON r.target_id = t.id
+            JOIN transactions t ON r.target_id = t.id
             WHERE r.target_type = 'transaction'
         """)
         all_flag_lists = cursor.fetchall()
@@ -742,11 +726,8 @@ def get_transactions():
         conn = database.get_db_connection()
         cursor = conn.cursor()
         cursor.execute(f"""
-            WITH dashboard_tx AS (
-                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT COUNT(*)
-            FROM dashboard_tx t
+            FROM transactions t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}
@@ -779,11 +760,8 @@ def get_transactions():
 
         # Fetch records using CTE
         sql_query = f"""
-            WITH dashboard_tx AS (
-                SELECT * FROM transactions ORDER BY id DESC LIMIT 1500
-            )
             SELECT t.*, m.name as customer_name, r.final_pct, r.rule_based_pct, r.ai_prob, r.verdict, r.level
-            FROM dashboard_tx t
+            FROM transactions t
             LEFT JOIN members m ON t.customer_id = m.id
             LEFT JOIN risk_scores r ON r.target_type = 'transaction' AND r.target_id = t.id
             {where_str}

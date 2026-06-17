@@ -1770,9 +1770,162 @@ function updateSimulatorOutput(r) {
    
     document.getElementById('pred-verdict').textContent = r.verdict;
    
-    let flagCount = 0;
-    Object.values(r.flags).forEach(v => { if (v === 1) flagCount++; });
-    document.getElementById('pred-flags-triggered').textContent = `${flagCount} / 14`;
+    // Calculate active indicators from current simulator form inputs
+    const indicatorList = [
+        {
+            name: "Payment Retry Count",
+            value: parseInt(document.getElementById('sim-payment_retry_count').value) || 0,
+            check: (v) => v > 0,
+            getSeverity: (v) => v >= 3 ? 'high' : 'medium',
+            display: (v) => `${v}`
+        },
+        {
+            name: "Same Product Count (Month)",
+            value: parseInt(document.getElementById('sim-same_product_transcation_count_month').value) || 0,
+            check: (v) => v !== 2,
+            getSeverity: (v) => v > 5 ? 'high' : (v >= 3 ? 'medium' : 'low'),
+            display: (v) => `${v}`
+        },
+        {
+            name: "First Transaction of Account",
+            value: document.getElementById('sim-is_first_transaction').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'medium',
+            display: (v) => `Yes`
+        },
+        {
+            name: "IP Address Outside Indonesia",
+            value: document.getElementById('sim-ip_outside').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "National ID Not Verified",
+            value: document.getElementById('sim-id_not_verified').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "KKS Card Validation Failed",
+            value: document.getElementById('sim-kks_not_valid').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Duplicate Account Detected",
+            value: document.getElementById('sim-duplicate_account').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Transaction Frequency > 3/hr",
+            value: document.getElementById('sim-high_frequency').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Invalid / Expired Bank Card",
+            value: document.getElementById('sim-card_invalid').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Repeated Purchase > 10",
+            value: document.getElementById('sim-repeated_purchase').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Same Device Multi-Account",
+            value: document.getElementById('sim-same_device').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Login Location Changed",
+            value: document.getElementById('sim-location_changed').checked ? 1 : 0,
+            check: (v) => v === 1,
+            getSeverity: (v) => 'high',
+            display: (v) => `Yes`
+        },
+        {
+            name: "Failed Login Attempts",
+            value: parseInt(document.getElementById('sim-failed_login_attempts').value) || 0,
+            check: (v) => v > 0,
+            getSeverity: (v) => v >= 3 ? 'high' : 'medium',
+            display: (v) => `${v}`
+        },
+        {
+            name: "Previous Transactions Count",
+            value: parseInt(document.getElementById('sim-prev_transactions').value) || 0,
+            check: (v) => v !== 5,
+            getSeverity: (v) => v === 0 ? 'high' : (v < 3 ? 'medium' : 'low'),
+            display: (v) => `${v}`
+        }
+    ];
+
+    const activeIndicators = indicatorList.filter(ind => ind.check(ind.value));
+    
+    // Update count displays dynamically to match active list
+    document.getElementById('pred-flags-triggered').textContent = `${activeIndicators.length} / 14`;
+
+    const listEl = document.getElementById('sim-indicators-list');
+    if (listEl) {
+        listEl.innerHTML = '';
+        if (activeIndicators.length === 0) {
+            const div = document.createElement('div');
+            div.style.color = 'var(--text-muted)';
+            div.style.fontSize = '12px';
+            div.style.fontStyle = 'italic';
+            div.style.textAlign = 'center';
+            div.style.padding = '8px';
+            div.textContent = "No active risk indicators.";
+            listEl.appendChild(div);
+        } else {
+            activeIndicators.forEach(ind => {
+                const div = document.createElement('div');
+                
+                let color = 'var(--color-legit)';
+                let bg = 'rgba(0, 230, 118, 0.04)';
+                let border = 'rgba(0, 230, 118, 0.15)';
+                
+                const sev = ind.getSeverity(ind.value);
+                if (sev === 'high') {
+                    color = 'var(--color-critical)';
+                    bg = 'rgba(255, 23, 68, 0.05)';
+                    border = 'rgba(255, 23, 68, 0.2)';
+                } else if (sev === 'medium') {
+                    color = 'var(--color-high)';
+                    bg = 'rgba(255, 145, 0, 0.05)';
+                    border = 'rgba(255, 145, 0, 0.2)';
+                }
+                
+                div.style.display = 'flex';
+                div.style.justifyContent = 'space-between';
+                div.style.alignItems = 'center';
+                div.style.padding = '6px 10px';
+                div.style.borderRadius = '6px';
+                div.style.background = bg;
+                div.style.border = `1px solid ${border}`;
+                div.style.fontSize = '12px';
+                div.style.fontWeight = '500';
+                
+                div.innerHTML = `
+                    <span style="color: var(--text-secondary);">${ind.name}</span>
+                    <span style="color: ${color}; font-weight: 700; font-family: monospace;">${ind.display(ind.value)}</span>
+                `;
+                listEl.appendChild(div);
+            });
+        }
+    }
    
     const combosContainer = document.getElementById('sim-combos-container');
     const combosList = document.getElementById('sim-combos-list');

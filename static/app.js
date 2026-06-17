@@ -398,7 +398,8 @@ function switchView(viewName) {
         'simulator': 'Interactive Risk Simulator',
         'upload': 'Batch Data Processing Engine',
         'reports': 'Compliance & Audit Reporting',
-        'audit-doc': 'Alert Audit Document'
+        'audit-doc': 'Alert Audit Document',
+        'checkout': 'Payment Security Gateway'
     };
     document.getElementById('view-title').textContent = titles[viewName] || 'Overview';
    
@@ -413,6 +414,8 @@ function switchView(viewName) {
         fetchMembers();
     } else if (viewName === 'audit-doc') {
         fetchAlerts(true);
+    } else if (viewName === 'checkout') {
+        populateCheckoutMembers();
     }
 }
 
@@ -464,6 +467,7 @@ async function loadAllData() {
             }
             
             await fetchAlerts(true);
+            await fetchMembers(true);
             updateOverviewStats();
             updateDashboardRecentActivity(statsData);
             checkForNewAlerts(statsData.recent_alerts);
@@ -528,6 +532,52 @@ function playAlertSound(severity) {
             gain.connect(ctx.destination);
             osc.start();
             osc.stop(ctx.currentTime + 0.3);
+        } else if (severityLower === 'medium') {
+            // MEDIUM: Double medium-pitch alert beep
+            let osc1 = ctx.createOscillator();
+            let gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(440, ctx.currentTime); // A4 (medium alert)
+            gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.2);
+            
+            let osc2 = ctx.createOscillator();
+            let gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(440, ctx.currentTime + 0.25);
+            gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.25);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.45);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(ctx.currentTime + 0.25);
+            osc2.stop(ctx.currentTime + 0.45);
+        } else if (severityLower === 'low' || severityLower === 'success' || severityLower === 'approved') {
+            // LOW / SUCCESS: Pleasant rising double chime
+            let osc1 = ctx.createOscillator();
+            let gain1 = ctx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+            gain1.gain.setValueAtTime(0.08, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.15);
+
+            let osc2 = ctx.createOscillator();
+            let gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+            gain2.gain.setValueAtTime(0.08, ctx.currentTime + 0.1);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(ctx.currentTime + 0.1);
+            osc2.stop(ctx.currentTime + 0.25);
         }
     } catch (e) {
         console.warn("Web Audio API warning: ", e);
@@ -3042,3 +3092,370 @@ document.addEventListener('keydown', (e) => {
         });
     }
 });
+
+// ─── PAYMENT SECURITY GATEWAY SIMULATOR ──────────────────────────────────────
+let currentCheckoutScenario = 'low';
+let isCheckoutProcessing = false;
+let checkoutSelectedTxId = null;
+let checkoutSelectedAlertId = null;
+
+function selectCheckoutScenario(riskLevel) {
+    currentCheckoutScenario = riskLevel;
+    document.querySelectorAll('.scenario-card').forEach(card => {
+        card.classList.remove('active');
+    });
+    const targetCard = document.querySelector(`.scenario-${riskLevel}`);
+    if (targetCard) {
+        targetCard.classList.add('active');
+    }
+}
+
+function getMemberCurrentBalance(memberId) {
+    const approvedTxs = allTransactions.filter(t => t.customer_id === Number(memberId) && t.status === 'approved');
+    if (approvedTxs.length > 0) {
+        approvedTxs.sort((a, b) => b.id - a.id);
+        return parseFloat(approvedTxs[0].Subsidy_balance || approvedTxs[0].subsidy_balance || 1500000);
+    }
+    return 1500000;
+}
+
+async function populateCheckoutMembers() {
+    const select = document.getElementById('checkout-member-select');
+    if (!select) return;
+    
+    if (!allMembers || allMembers.length === 0) {
+        await fetchMembers(true);
+    }
+    
+    select.innerHTML = '';
+    
+    const activeMembers = allMembers.filter(m => m.verification_status !== 'Blocked');
+    if (activeMembers.length === 0) {
+        select.innerHTML = `<option value="">No active members found</option>`;
+        return;
+    }
+    
+    activeMembers.forEach(m => {
+        const option = document.createElement('option');
+        option.value = m.id;
+        option.textContent = `${m.name} (ID: ${m.id}) - Balance: Rp ${parseFloat(getMemberCurrentBalance(m.id)).toLocaleString('id-ID')}`;
+        select.appendChild(option);
+    });
+}
+
+async function startCheckoutSimulation() {
+    if (isCheckoutProcessing) return;
+    
+    const select = document.getElementById('checkout-member-select');
+    if (!select || !select.value) {
+        showToast("Error", "Please select a customer first.", "critical");
+        return;
+    }
+    
+    isCheckoutProcessing = true;
+    const memberId = select.value;
+    const currentBalance = getMemberCurrentBalance(memberId);
+    
+    // Construct checkout payload based on selected scenario card
+    const payload = {
+        customer_id: Number(memberId),
+        initial_subsidy: 1500000,
+        transaction_amount: 120000,
+        subsidy_balance: currentBalance,
+        hour_of_day: new Date().getHours(),
+        num_items: 3,
+        previous_transactions: 5,
+        is_first_transaction: 0,
+        app_vs_kiosk: 0
+    };
+    
+    if (currentCheckoutScenario === 'low') {
+        payload.national_id_verification = 1;
+        payload.kks_card_validation = 1;
+        payload.valid_card = 1;
+        payload.duplicate_account_detection = 0;
+        payload.transaction_frequency_high = 0;
+        payload.ip_outside_indonesia = 0;
+        payload.same_device_multiple_accounts = 0;
+        payload.login_location_changed = 0;
+        payload.repeated_product_purchase = 0;
+        payload.same_product_transaction_count_month = 0;
+        payload.failed_login_attempts = 0;
+        payload.payment_retry_count = 0;
+    } else if (currentCheckoutScenario === 'medium') {
+        payload.national_id_verification = 0;
+        payload.kks_card_validation = 0;
+        payload.valid_card = 0;
+        payload.duplicate_account_detection = 0;
+        payload.transaction_frequency_high = 0;
+        payload.ip_outside_indonesia = 0;
+        payload.same_device_multiple_accounts = 0;
+        payload.login_location_changed = 0;
+        payload.repeated_product_purchase = 0;
+        payload.same_product_transaction_count_month = 0;
+        payload.failed_login_attempts = 0;
+        payload.payment_retry_count = 3; // Suspicious retry patterns (3 retries)
+    } else { // high
+        payload.national_id_verification = 0;
+        payload.kks_card_validation = 0;
+        payload.valid_card = 0;
+        payload.duplicate_account_detection = 1;
+        payload.transaction_frequency_high = 1;
+        payload.ip_outside_indonesia = 1; // Outside Indonesia
+        payload.same_device_multiple_accounts = 1;
+        payload.login_location_changed = 1;
+        payload.repeated_product_purchase = 1;
+        payload.same_product_transaction_count_month = 6;
+        payload.failed_login_attempts = 3;
+        payload.payment_retry_count = 3;
+    }
+    
+    // Show checkout loader overlay and reset progress
+    const loaderOverlay = document.getElementById('checkout-loading-overlay');
+    const progressFill = document.getElementById('checkout-progress-fill');
+    const timerText = document.getElementById('checkout-loader-timer');
+    const loaderText = document.getElementById('checkout-loader-text');
+    
+    loaderOverlay.classList.add('active');
+    progressFill.style.width = '0%';
+    loaderText.textContent = "Reviewing transaction risk...";
+    timerText.textContent = "Estimated analysis time remaining: 1.5s";
+    
+    // Start progress bar animation (1.5s duration)
+    const animationPromise = new Promise(resolve => {
+        let duration = 1500;
+        let elapsed = 0;
+        let progressInterval = setInterval(() => {
+            elapsed += 50;
+            let pct = Math.min((elapsed / duration) * 100, 100);
+            progressFill.style.width = pct + '%';
+            
+            let remaining = ((duration - elapsed) / 1000).toFixed(1);
+            if (remaining < 0) remaining = '0.0';
+            timerText.textContent = `Estimated analysis time remaining: ${remaining}s`;
+            
+            if (elapsed >= duration) {
+                clearInterval(progressInterval);
+                resolve();
+            }
+        }, 50);
+    });
+    
+    // Execute backend checkout POST request
+    const apiPromise = fetch(getApiUrl('/api/checkout'), {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'kova_secret_api_key_2026'
+        },
+        body: JSON.stringify(payload)
+    });
+    
+    try {
+        // Wait for both the 1.5s scoring animation and the API request to resolve
+        const [_, response] = await Promise.all([animationPromise, apiPromise]);
+        
+        if (response.status === 200) {
+            // Success: low risk
+            const json = await response.json();
+            
+            // Immediately sync client data and stats
+            await loadAllData();
+            
+            // Auto update max IDs to prevent background poller duplication
+            if (allTransactions.length > 0) {
+                maxTxIdSeen = Math.max(maxTxIdSeen, ...allTransactions.map(t => t.id));
+            }
+            if (allAlerts.length > 0) {
+                maxAlertIdSeen = Math.max(maxAlertIdSeen, ...allAlerts.map(a => a.id));
+            }
+            
+            playAlertSound('success');
+            showToast("Transaction saved and approved successfully.", "Low risk transaction automatically approved.", "success");
+            
+            // Render success screen
+            document.getElementById('checkout-form-content').style.display = 'none';
+            const memberName = select.options[select.selectedIndex].text.split(' (')[0];
+            const newBal = getMemberCurrentBalance(memberId);
+            document.getElementById('checkout-success-desc').textContent = 
+                `Transaction saved and approved successfully. Rp 120.000 has been deducted from the subsidy balance of ${memberName}. Remaining balance: Rp ${parseFloat(newBal).toLocaleString('id-ID')}.`;
+            
+            loaderOverlay.classList.remove('active');
+            document.getElementById('checkout-result-success').classList.add('active');
+            
+        } else if (response.status === 403) {
+            // Blocked / Hold for Review
+            const json = await response.json();
+            
+            // Immediately sync data to find the blocked transaction parameters
+            await loadAllData();
+            
+            // Fetch the latest transaction details to know if it's "review" (Medium) or "blocked" (High)
+            const txResponse = await fetch(getApiUrl('/api/transactions?limit=1'));
+            const txJson = await txResponse.json();
+            const tx = txJson.transactions[0];
+            
+            if (tx) {
+                // Auto update max IDs to prevent background poller duplication
+                maxTxIdSeen = Math.max(maxTxIdSeen, tx.id);
+                
+                // Find associated alert for this transaction
+                const alt = allAlerts.find(a => a.target_type === 'transaction' && a.target_id === tx.id);
+                if (alt) {
+                    maxAlertIdSeen = Math.max(maxAlertIdSeen, alt.id);
+                }
+                
+                if (tx.status === 'review') {
+                    // Medium Risk: Hold for manual auditor review
+                    checkoutSelectedTxId = tx.id;
+                    checkoutSelectedAlertId = alt ? alt.id : null;
+                    
+                    playAlertSound('medium');
+                    showToast("Transaction requires review.", "This transaction needs review before continuing.", "medium");
+                    
+                    // Populate modal vectors list
+                    const listEl = document.getElementById('checkout-modal-vectors-list');
+                    listEl.innerHTML = '';
+                    const indicators = alt ? alt.indicators : ['flag_payment_retry'];
+                    const flagLabelsMap = {
+                        "flag_ip_outsider": "Foreign IP Address",
+                        "flag_repeated_purchase": "Repeated Purchase >10",
+                        "flag_high_frequency": "Transaction Freq >3/hr",
+                        "flag_duplicate_account": "Duplicate Account",
+                        "flag_same_device": "Same Device Multi-Account",
+                        "flag_location_changed": "Login Location Changed",
+                        "flag_same_product_high": "Same Product count >5/mo",
+                        "flag_payment_retry": "Payment Retry >= 3",
+                        "flag_failed_login": "Failed Logins >= 3",
+                        "flag_id_not_verified": "ID Not Verified",
+                        "flag_kks_not_valid": "KKS Invalid",
+                        "flag_card_invalid": "Card Invalid",
+                        "flag_subsidy_exhausted": "Subsidy Exhausted",
+                        "flag_kiosk": "Kiosk Transaction"
+                    };
+                    indicators.forEach(ind => {
+                        const item = document.createElement('div');
+                        item.className = 'checkout-modal-vector-item';
+                        item.innerHTML = `⚠️ ${flagLabelsMap[ind] || ind}`;
+                        listEl.appendChild(item);
+                    });
+                    
+                    // Show the non-dismissible manual review modal
+                    document.getElementById('checkout-review-modal-backdrop').classList.add('open');
+                    
+                } else {
+                    // High / Critical Risk: Blocked automatically
+                    playAlertSound('critical');
+                    showToast("Transaction blocked due to potential fraud.", "High/Critical risk transaction auto-blocked.", "critical");
+                    
+                    document.getElementById('checkout-form-content').style.display = 'none';
+                    const indicatorsText = alt ? alt.indicators.map(ind => {
+                        const flagLabelsMap = {
+                            "flag_ip_outsider": "Foreign IP Address",
+                            "flag_repeated_purchase": "Repeated Purchase >10",
+                            "flag_high_frequency": "Transaction Freq >3/hr",
+                            "flag_duplicate_account": "Duplicate Account",
+                            "flag_same_device": "Same Device Multi-Account",
+                            "flag_location_changed": "Login Location Changed",
+                            "flag_same_product_high": "Same Product count >5/mo",
+                            "flag_payment_retry": "Payment Retry >= 3",
+                            "flag_failed_login": "Failed Logins >= 3",
+                            "flag_id_not_verified": "ID Not Verified",
+                            "flag_kks_not_valid": "KKS Invalid",
+                            "flag_card_invalid": "Card Invalid",
+                            "flag_subsidy_exhausted": "Subsidy Exhausted",
+                            "flag_kiosk": "Kiosk Transaction"
+                        };
+                        return flagLabelsMap[ind] || ind;
+                    }).join(', ') : 'IP Address outside Indonesia';
+                    
+                    document.getElementById('checkout-blocked-desc').textContent = 
+                        `Transaction blocked automatically due to possible fraud. High/Critical security threat detected (${indicatorsText}).`;
+                    
+                    loaderOverlay.classList.remove('active');
+                    document.getElementById('checkout-result-blocked').classList.add('active');
+                }
+            } else {
+                throw new Error("Unable to locate registered checkout transaction details.");
+            }
+            
+        } else {
+            const errJson = await response.json();
+            throw new Error(errJson.message || `HTTP Error ${response.status}`);
+        }
+    } catch (e) {
+        console.error("Payment simulation error:", e);
+        showToast("Transaction Failed", e.message || "An unexpected error occurred.", "critical");
+        loaderOverlay.classList.remove('active');
+        isCheckoutProcessing = false;
+    }
+}
+
+async function submitManualCheckoutDecision(decision) {
+    if (!checkoutSelectedTxId) return;
+    try {
+        const payload = {
+            transaction_id: checkoutSelectedTxId,
+            status: decision,
+            note: `Auditor manual checkout decision: ${decision.toUpperCase()}`,
+            operator: 'Auditor'
+        };
+        
+        const response = await fetch(getApiUrl('/api/transactions/audit'), {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-API-Key': 'kova_secret_api_key_2026'
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        const json = await response.json();
+        if (json.status === 'success') {
+            document.getElementById('checkout-review-modal-backdrop').classList.remove('open');
+            document.getElementById('checkout-loading-overlay').classList.remove('active');
+            
+            document.getElementById('checkout-form-content').style.display = 'none';
+            if (decision === 'approved') {
+                playAlertSound('success');
+                showToast("Transaction saved and approved successfully.", "The transaction was approved after auditor review.", "success");
+                
+                const memberSelect = document.getElementById('checkout-member-select');
+                const memberName = memberSelect.options[memberSelect.selectedIndex].text.split(' (')[0];
+                const newBal = getMemberCurrentBalance(memberSelect.value);
+                document.getElementById('checkout-success-desc').textContent = 
+                    `Transaction saved and approved successfully. Rp 120.000 has been deducted from the subsidy balance of ${memberName}. Remaining balance: Rp ${parseFloat(newBal).toLocaleString('id-ID')}.`;
+                
+                document.getElementById('checkout-result-success').classList.add('active');
+            } else {
+                playAlertSound('critical');
+                showToast("Transaction blocked due to potential fraud.", "The transaction was blocked after auditor review.", "critical");
+                
+                document.getElementById('checkout-blocked-desc').textContent = 
+                    `Transaction blocked due to potential fraud. High/Critical security threat confirmed by manual audit.`;
+                
+                document.getElementById('checkout-result-blocked').classList.add('active');
+            }
+            
+            await loadAllData();
+        } else {
+            showToast("Audit Submission Error", json.message || "Could not register audit decision.", "critical");
+        }
+    } catch (e) {
+        console.error("Error submitting manual audit decision:", e);
+        showToast("Network Error", "Failed to submit manual audit decision.", "critical");
+    }
+}
+
+function resetCheckoutView() {
+    document.getElementById('checkout-form-content').style.display = 'block';
+    document.getElementById('checkout-result-success').classList.remove('active');
+    document.getElementById('checkout-result-blocked').classList.remove('active');
+    document.getElementById('checkout-loading-overlay').classList.remove('active');
+    isCheckoutProcessing = false;
+    checkoutSelectedTxId = null;
+    checkoutSelectedAlertId = null;
+    
+    loadAllData();
+    populateCheckoutMembers();
+}

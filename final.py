@@ -381,29 +381,34 @@ def score_transaction(t):
     final_pct = round(max(rule_based_pct, ai_prob), 1)
 
     # Step 6: Verdict
+    if final_pct >= 80:
+        level = "🔴 CRITICAL"
+    elif final_pct >= 55:
+        level = "🟠 HIGH"
+    elif final_pct >= 40:
+        level = "🟡 MEDIUM"
+    else:
+        level = "🟢 LOW"
+
     if triggered_combos:
         highest = triggered_combos[0]
-        if highest["tier"] == "CRITICAL" or final_pct >= 80:
-            level   = "🔴 CRITICAL"
-            verdict = f"🚨 RULE-FLAGGED — {highest['name']}"
-        elif highest["tier"] == "HIGH" or final_pct >= 55:
-            level   = "🟠 HIGH"
+        if final_pct >= 55:
             verdict = f"🚨 RULE-FLAGGED — {highest['name']}"
         else:
-            level   = "🟡 MEDIUM"
             verdict = f"⚠️  POSSIBLE FRAUD — {highest['name']}"
     elif n_flags >= 4:
-        level   = "🟠 HIGH"
         verdict = "🚨 RULE-FLAGGED — Multiple suspicious indicators"
     elif n_flags == 3:
-        level   = "🟡 MEDIUM"
         verdict = "⚠️  POSSIBLE FRAUD — Multiple indicators present"
     elif n_flags == 2:
-        level   = "🟢 LOW"
         verdict = "⚠️  MONITOR — Two indicators present"
     else:
-        level   = "🟢 LOW"
-        verdict = "✅ TRANSACTION LOOKS LEGIT — Insufficient indicators"
+        if final_pct >= 55:
+            verdict = "🚨 AI-FLAGGED — High risk model prediction"
+        elif final_pct >= 40:
+            verdict = "⚠️  AI-REVIEW — Medium risk model prediction"
+        else:
+            verdict = "✅ TRANSACTION LOOKS LEGIT — Insufficient indicators"
 
     return {
         "transaction":      t,

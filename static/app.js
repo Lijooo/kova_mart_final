@@ -528,6 +528,29 @@ function playAlertSound(severity) {
             gain.connect(ctx.destination);
             osc.start();
             osc.stop(ctx.currentTime + 0.3);
+        } else if (severityLower === 'medium') {
+            // MEDIUM: Dual-tone warning chime (440 Hz then 554 Hz)
+            let osc1 = ctx.createOscillator();
+            let gain1 = ctx.createGain();
+            osc1.type = 'triangle';
+            osc1.frequency.setValueAtTime(440, ctx.currentTime);
+            gain1.gain.setValueAtTime(0.12, ctx.currentTime);
+            gain1.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+            osc1.connect(gain1);
+            gain1.connect(ctx.destination);
+            osc1.start();
+            osc1.stop(ctx.currentTime + 0.2);
+
+            let osc2 = ctx.createOscillator();
+            let gain2 = ctx.createGain();
+            osc2.type = 'triangle';
+            osc2.frequency.setValueAtTime(554, ctx.currentTime + 0.15);
+            gain2.gain.setValueAtTime(0.12, ctx.currentTime + 0.15);
+            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.35);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(ctx.currentTime + 0.15);
+            osc2.stop(ctx.currentTime + 0.35);
         }
     } catch (e) {
         console.warn("Web Audio API warning: ", e);
@@ -566,14 +589,116 @@ function checkForNewAlerts(recentAlerts) {
         }
         
         const sev = (alt.severity_level || '').toLowerCase();
-        if (sev === 'critical' || sev === 'high') {
+        if (sev === 'critical' || sev === 'high' || sev === 'medium') {
             playAlertSound(alt.severity_level);
+        }
+        
+        if (sev === 'medium' && alt.status !== 'Resolved') {
+            showAdminAlertPopup(alt);
         }
     });
     
     if (incomingMaxId > maxAlertIdSeen) {
         maxAlertIdSeen = incomingMaxId;
     }
+}
+
+function showAdminAlertPopup(alt) {
+    const backdrop = document.getElementById('admin-alert-backdrop');
+    if (!backdrop) return;
+    
+    // Set Transaction ID
+    document.getElementById('admin-alert-tx-id').textContent = `#${alt.target_id || alt.id}`;
+    
+    // Set Customer Name
+    document.getElementById('admin-alert-customer-name').textContent = alt.customer_name || `Customer #${alt.customer_id}`;
+    
+    // Set Order Amount
+    const amountVal = alt.transaction_amount || 0.0;
+    document.getElementById('admin-alert-amount').textContent = 'Rp ' + amountVal.toLocaleString('id-ID');
+    
+    // Set Time Detected
+    document.getElementById('admin-alert-time').textContent = alt.detection_timestamp;
+    
+    // Set Fraud Indicators
+    const reasonContainer = document.getElementById('admin-alert-reason');
+    reasonContainer.innerHTML = '';
+    const indicators = alt.fraud_indicators_triggered || alt.indicators || [];
+    if (indicators.length === 0) {
+        reasonContainer.innerHTML = `<span style="color:var(--text-muted); font-style:italic;">No specific indicators listed.</span>`;
+    } else {
+        indicators.forEach(ind => {
+            const span = document.createElement('span');
+            span.style.background = 'rgba(255, 183, 77, 0.1)';
+            span.style.border = '1px solid rgba(255, 183, 77, 0.25)';
+            span.style.color = 'var(--color-medium)';
+            span.style.padding = '3px 8px';
+            span.style.borderRadius = '4px';
+            span.style.fontSize = '11px';
+            span.style.fontWeight = '500';
+            span.textContent = ind;
+            reasonContainer.appendChild(span);
+        });
+    }
+    
+    // Wire button events
+    const btnApprove = document.getElementById('admin-alert-btn-approve');
+    const btnHold = document.getElementById('admin-alert-btn-hold');
+    const btnBlock = document.getElementById('admin-alert-btn-block');
+    
+    // Remove previous event listeners
+    const newBtnApprove = btnApprove.cloneNode(true);
+    const newBtnHold = btnHold.cloneNode(true);
+    const newBtnBlock = btnBlock.cloneNode(true);
+    
+    btnApprove.parentNode.replaceChild(newBtnApprove, btnApprove);
+    btnHold.parentNode.replaceChild(newBtnHold, btnHold);
+    btnBlock.parentNode.replaceChild(newBtnBlock, btnBlock);
+    
+    const handleAction = async (status, actionNote) => {
+        newBtnApprove.disabled = true;
+        newBtnHold.disabled = true;
+        newBtnBlock.disabled = true;
+        
+        try {
+            const response = await callApi('/api/transactions/audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    transaction_id: alt.target_id || alt.id,
+                    status: status,
+                    note: actionNote,
+                    operator: 'Admin'
+                })
+            });
+            
+            if (response.status === 'success') {
+                backdrop.classList.remove('open');
+                showToast(
+                    status === 'approved' ? 'Transaction Approved' : (status === 'blocked' ? 'Transaction Blocked' : 'Transaction Kept on Hold'),
+                    `Transaction #${alt.target_id || alt.id} status updated successfully to ${status.toUpperCase()}.`,
+                    status === 'approved' ? 'success' : (status === 'blocked' ? 'critical' : 'warning')
+                );
+                await loadAllData(); // Refresh metrics instantly
+            } else {
+                showToast("Audit Update Error", response.message || "Failed to submit auditor action.", "critical");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("Network Error", "Could not submit audit decision.", "critical");
+        } finally {
+            newBtnApprove.disabled = false;
+            newBtnHold.disabled = false;
+            newBtnBlock.disabled = false;
+        }
+    };
+    
+    newBtnApprove.addEventListener('click', () => handleAction('approved', 'Manual dashboard alert approval. allowed order to continue.'));
+    newBtnHold.addEventListener('click', () => handleAction('review', 'Manual dashboard alert kept on hold for checking.'));
+    newBtnBlock.addEventListener('click', () => handleAction('blocked', 'Manual dashboard alert block. blocked transaction immediately.'));
+    
+    backdrop.classList.add('open');
+    lucide.createIcons({ attrs: { class: 'lucide-icon' } });
 }
 
 // Populate stats numbers in dashboard widgets
@@ -1645,7 +1770,7 @@ async function addSimulatedTxToQueue() {
     let originalHtml = '';
     if (btn) {
         originalHtml = btn.innerHTML;
-        btn.innerHTML = `<span class="loading-spinner"></span> Saving...`;
+        btn.innerHTML = `<span class="loading-spinner"></span> Analyzing...`;
         btn.disabled = true;
     }
     
@@ -1676,13 +1801,51 @@ async function addSimulatedTxToQueue() {
     };
     
     try {
+        // Step 1. Score the scenario first using /api/analyze to determine the threat level
+        const analyzeJson = await callApi('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (analyzeJson.status !== 'success') {
+            throw new Error(analyzeJson.message || "Risk assessment failed.");
+        }
+        
+        const r = analyzeJson.result;
+        const score = r.final_pct;
+        
+        if (score >= 40 && score < 55) {
+            // MEDIUM RISK: Intercept and display popup
+            isAddingToQueue = false;
+            if (btn) {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }
+            showMediumRiskReviewModal(payload, r);
+            return;
+        }
+        
+        // Low Risk or High Risk: Add directly
+        if (btn) {
+            btn.innerHTML = `<span class="loading-spinner"></span> Saving...`;
+        }
+        
         const json = await callApi('/api/simulator/add', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
         });
+        
         if (json.status === 'success') {
-            showToast("Scenario Queued", `Simulated transaction successfully added to queue for Customer #${json.customer_id}!`, "success");
+            if (score < 40) {
+                showToast("Low Risk Approved", "Low risk transaction approved and saved.", "success");
+            } else {
+                showToast("Transaction Blocked", "Transaction blocked due to high/critical fraud risk.", "critical");
+            }
+            await loadAllData(); // Refresh queue/activity list
+        } else {
+            showToast("Error adding to queue", json.message || "Could not write simulated transaction to database.", "critical");
         }
     } catch (e) {
         console.error("Queue Adding Error: ", e);
@@ -1694,6 +1857,153 @@ async function addSimulatedTxToQueue() {
             btn.disabled = false;
         }
     }
+}
+
+function getTriggeredIndicators(payload) {
+    const indicatorList = [
+        { name: "Payment Retry Count", value: payload.payment_retry_count, check: (v) => v > 0, display: (v) => `${v}` },
+        { name: "Same Product Count (Month)", value: payload.same_product_transcation_count_month, check: (v) => v !== 2, display: (v) => `${v}` },
+        { name: "First Transaction of Account", value: payload.is_first_transaction, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "IP Address Outside Indonesia", value: payload["IP address (outside Indonesia )"], check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "National ID Not Verified", value: payload.National_ID_verification === 0 ? 1 : 0, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "KKS Card Validation Failed", value: payload.KKS_card_validation === 0 ? 1 : 0, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Duplicate Account Detected", value: payload.Duplicate_account_detection, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Transaction Frequency > 3/hr", value: payload["Transaction frequency (>3 per hour)"], check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Invalid / Expired Bank Card", value: payload.valid_card === 0 ? 1 : 0, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Repeated Purchase > 10", value: payload["repeated_product_purchase(>10)"], check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Same Device Multi-Account", value: payload.same_device_multiple_accounts, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Login Location Changed", value: payload.login_location_changed, check: (v) => v === 1, display: (v) => `Yes` },
+        { name: "Failed Login Attempts", value: payload.failed_login_attempts, check: (v) => v > 0, display: (v) => `${v}` },
+        { name: "Previous Transactions Count", value: payload.prev_transactions, check: (v) => v !== 5, display: (v) => `${v}` }
+    ];
+
+    return indicatorList.filter(ind => ind.check(ind.value));
+}
+
+function showMediumRiskReviewModal(payload, r) {
+    const backdrop = document.getElementById('sim-review-backdrop');
+    const scoreBadge = document.getElementById('sim-review-score-badge');
+    const indicatorsList = document.getElementById('sim-review-indicators-list');
+    const rulesList = document.getElementById('sim-review-rules-list');
+    
+    // Set score and class
+    scoreBadge.textContent = r.final_pct.toFixed(1) + '%';
+    
+    // Get triggered indicators
+    const activeIndicators = getTriggeredIndicators(payload);
+    
+    indicatorsList.innerHTML = '';
+    if (activeIndicators.length === 0) {
+        indicatorsList.innerHTML = `<div style="color:var(--text-muted); font-size:12px; font-style:italic; text-align:center; width: 100%; padding:8px;">No active risk indicators.</div>`;
+    } else {
+        activeIndicators.forEach(ind => {
+            const div = document.createElement('div');
+            div.className = 'sim-review-indicator-item';
+            div.innerHTML = `
+                <span style="color: var(--text-secondary);">${ind.name}</span>
+                <span class="sim-review-indicator-value" style="color: var(--color-medium); font-weight: 700;">${ind.display(ind.value)}</span>
+            `;
+            indicatorsList.appendChild(div);
+        });
+    }
+    
+    // Get Triggered Rules
+    rulesList.innerHTML = '';
+    if (r.triggered_combos && r.triggered_combos.length > 0) {
+        r.triggered_combos.forEach(c => {
+            const item = document.createElement('div');
+            item.className = 'sim-review-rule-item';
+            item.innerHTML = `
+                <i data-lucide="alert-triangle" style="color: var(--color-medium); margin-right: 6px;"></i>
+                <span style="font-weight: 600; color: var(--color-medium);">${c.combo_id} ${c.name}</span>
+            `;
+            rulesList.appendChild(item);
+        });
+    } else {
+        rulesList.innerHTML = `<div style="color:var(--text-muted); font-size:12px; font-style:italic; text-align:center; padding: 4px 0;">No combination rule triggered</div>`;
+    }
+    
+    // Set button click handlers
+    const btnApprove = document.getElementById('sim-review-btn-approve');
+    const btnBlock = document.getElementById('sim-review-btn-block');
+    
+    // Remove any previous event listeners to avoid duplicates
+    const newBtnApprove = btnApprove.cloneNode(true);
+    const newBtnBlock = btnBlock.cloneNode(true);
+    btnApprove.parentNode.replaceChild(newBtnApprove, btnApprove);
+    btnBlock.parentNode.replaceChild(newBtnBlock, btnBlock);
+    
+    newBtnApprove.addEventListener('click', async () => {
+        newBtnApprove.disabled = true;
+        newBtnBlock.disabled = true;
+        newBtnApprove.innerHTML = `<span class="loading-spinner"></span> Approving...`;
+        
+        try {
+            const json = await callApi('/api/simulator/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...payload,
+                    status: 'approved',
+                    audit_note: 'Medium risk manually approved.',
+                    operator: 'Auditor'
+                })
+            });
+            if (json.status === 'success') {
+                backdrop.classList.remove('open');
+                showToast("Approved Transaction", "Medium risk manually approved.", "success");
+                await loadAllData();
+            } else {
+                showToast("Error", json.message || "Failed to manually approve transaction.", "critical");
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("Approval Error", "Failed to manually approve transaction.", "critical");
+        } finally {
+            newBtnApprove.disabled = false;
+            newBtnBlock.disabled = false;
+            newBtnApprove.innerHTML = `<i data-lucide="check-circle-2"></i> Approve Transaction`;
+            lucide.createIcons({ attrs: { class: 'lucide-icon' } });
+        }
+    });
+    
+    newBtnBlock.addEventListener('click', async () => {
+        newBtnApprove.disabled = true;
+        newBtnBlock.disabled = true;
+        newBtnBlock.innerHTML = `<span class="loading-spinner"></span> Blocking...`;
+        
+        try {
+            const json = await callApi('/api/simulator/add', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    ...payload,
+                    status: 'blocked',
+                    audit_note: 'Medium risk manually blocked.',
+                    operator: 'Auditor'
+                })
+            });
+            if (json.status === 'success') {
+                backdrop.classList.remove('open');
+                showToast("Blocked Transaction", "Medium risk manually blocked.", "critical");
+                await loadAllData();
+            } else {
+                showToast("Error", json.message || "Failed to manually block transaction.", "critical");
+            }
+        } catch (e) {
+            console.error(e);
+            showToast("Blocking Error", "Failed to manually block transaction.", "critical");
+        } finally {
+            newBtnApprove.disabled = false;
+            newBtnBlock.disabled = false;
+            newBtnBlock.innerHTML = `<i data-lucide="ban"></i> Block Transaction`;
+            lucide.createIcons({ attrs: { class: 'lucide-icon' } });
+        }
+    });
+    
+    // Open Backdrop
+    backdrop.classList.add('open');
+    lucide.createIcons({ attrs: { class: 'lucide-icon' } });
 }
 
 function resetSimulatorForm() {

@@ -915,6 +915,104 @@
                 </div>
             </div>
         </div>
+    <!-- MEDIUM RISK SIMULATION TRANSACTION REVIEW MODAL -->
+    <div class="sim-review-backdrop" id="sim-review-backdrop">
+        <div class="sim-review-modal">
+            <div class="sim-review-header">
+                <div class="sim-review-title">
+                    <i data-lucide="shield-alert" style="color: var(--color-medium);"></i>
+                    <span>Medium Risk Transaction Review</span>
+                </div>
+                <div class="sim-review-subtitle">
+                    This simulated payment requires manual auditor authorization before continuing.
+                </div>
+            </div>
+            
+            <div class="sim-review-score-container">
+                <span class="sim-review-score-label">Evaluated Fraud Risk Score:</span>
+                <span class="sim-review-score-badge" id="sim-review-score-badge">0.0%</span>
+            </div>
+            
+            <div>
+                <div class="sim-review-section-title">Triggered Indicators</div>
+                <div class="sim-review-indicators-list" id="sim-review-indicators-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            
+            <div>
+                <div class="sim-review-section-title">Triggered Rules</div>
+                <div class="sim-review-rules-container" id="sim-review-rules-list">
+                    <!-- Populated dynamically -->
+                </div>
+            </div>
+            
+            <div class="sim-review-actions">
+                <button type="button" class="sim-review-btn sim-review-btn-approve" id="sim-review-btn-approve">
+                    <i data-lucide="check-circle-2"></i> Approve Transaction
+                </button>
+                <button type="button" class="sim-review-btn sim-review-btn-block" id="sim-review-btn-block">
+                    <i data-lucide="ban"></i> Block Transaction
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- REAL-TIME MEDIUM RISK POPUP ALERT FOR ADMIN DASHBOARD -->
+    <div class="admin-alert-backdrop" id="admin-alert-backdrop">
+        <div class="admin-alert-modal">
+            <div class="admin-alert-header">
+                <div class="admin-alert-title">
+                    <i data-lucide="shield-alert" style="color: var(--color-medium);"></i>
+                    <span>Medium Risk Fraud Detection Alert</span>
+                </div>
+            </div>
+            
+            <div class="admin-alert-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; font-size: 13px; margin-bottom: 16px;">
+                    <div>
+                        <span style="color: var(--text-muted); display: block; margin-bottom: 4px;">Fraud Risk Level:</span>
+                        <span style="color: var(--color-medium); font-weight: 700; background: rgba(255, 183, 77, 0.15); border: 1px solid rgba(255, 183, 77, 0.3); padding: 2px 8px; border-radius: 4px;">MEDIUM</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; margin-bottom: 4px;">Transaction ID:</span>
+                        <span id="admin-alert-tx-id" style="font-weight: 700; font-family: monospace;">#0000</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; margin-bottom: 4px;">Customer Name:</span>
+                        <span id="admin-alert-customer-name" style="font-weight: 600;">-</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--text-muted); display: block; margin-bottom: 4px;">Order Amount:</span>
+                        <span id="admin-alert-amount" style="font-weight: 700; color: var(--color-medium);">Rp 0</span>
+                    </div>
+                </div>
+                
+                <div style="margin-bottom: 16px;">
+                    <span style="color: var(--text-muted); display: block; font-size: 13px; margin-bottom: 4px;">Time Detected:</span>
+                    <span id="admin-alert-time" style="font-size: 12px; font-family: monospace; color: var(--text-secondary);">-</span>
+                </div>
+                
+                <div>
+                    <span style="color: var(--text-muted); display: block; font-size: 13px; margin-bottom: 6px;">Fraud Indicators:</span>
+                    <div id="admin-alert-reason" style="background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(255, 255, 255, 0.05); border-radius: 6px; padding: 10px; font-size: 12px; max-height: 100px; overflow-y: auto; display: flex; flex-wrap: wrap; gap: 6px;">
+                        <!-- Injected -->
+                    </div>
+                </div>
+            </div>
+            
+            <div class="admin-alert-actions" style="display: flex; gap: 12px; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 16px;">
+                <button type="button" class="admin-alert-btn btn-approve admin-alert-btn-approve" id="admin-alert-btn-approve" style="flex: 1; padding: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                    <i data-lucide="check-circle-2"></i> Approve
+                </button>
+                <button type="button" class="admin-alert-btn btn-hold admin-alert-btn-hold" id="admin-alert-btn-hold" style="flex: 1; padding: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; background: rgba(255, 183, 77, 0.15); border: 1px solid rgba(255, 183, 77, 0.4); color: var(--color-medium); font-size: 13px;">
+                    <i data-lucide="pause-circle"></i> Review / Hold
+                </button>
+                <button type="button" class="admin-alert-btn btn-block-action admin-alert-btn-block" id="admin-alert-btn-block" style="flex: 1; padding: 12px; font-weight: 600; border-radius: 6px; cursor: pointer; font-size: 13px;">
+                    <i data-lucide="ban"></i> Block
+                </button>
+            </div>
+        </div>
     </div>
 
     <!-- ALERT TOASTS CONTAINER -->

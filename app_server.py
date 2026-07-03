@@ -391,6 +391,7 @@ def get_dashboard_data():
         recent_a_rows = cursor.fetchall()
         recent_alerts = []
         for ra in recent_a_rows:
+            tx_details = json.loads(ra["transaction_details"]) if ra["transaction_details"] else {}
             recent_alerts.append({
                 "id": ra["id"],
                 "alert_id": ra["alert_id"],
@@ -400,7 +401,9 @@ def get_dashboard_data():
                 "severity_level": ra["severity_level"],
                 "status": ra["status"],
                 "detection_timestamp": ra["detection_timestamp"],
-                "fraud_indicators_triggered": json.loads(ra["fraud_indicators_triggered"])
+                "fraud_indicators_triggered": json.loads(ra["fraud_indicators_triggered"]),
+                "transaction_amount": tx_details.get("transaction_amount", 0.0),
+                "target_id": ra["target_id"]
             })
             
         conn.close()
@@ -1661,25 +1664,27 @@ def simulator_add_tx():
         # Determine risk and decision based on new rules
         ip_outside = t["IP address (outside Indonesia )"]
         if ip_outside == 1:
-            status_val = "blocked"
+            default_status = "blocked"
             risk_category = "CRITICAL"
             decision = "BLOCK"
         elif score >= 80:
-            status_val = "blocked"
+            default_status = "blocked"
             risk_category = "CRITICAL"
             decision = "BLOCK"
         elif score >= 55:
-            status_val = "blocked"
+            default_status = "blocked"
             risk_category = "HIGH"
             decision = "BLOCK"
         elif score >= 40:
-            status_val = "review"
+            default_status = "review"
             risk_category = "MEDIUM"
             decision = "REVIEW"
         else:
-            status_val = "approved"
+            default_status = "approved"
             risk_category = "LOW"
             decision = "APPROVE"
+
+        status_val = data.get("status", default_status)
 
         timestamp = datetime.now().isoformat()
 
@@ -1713,11 +1718,27 @@ def simulator_add_tx():
               level, verdict, json.dumps([k for k, v in res["flags"].items() if v == 1]),
               json.dumps([c["combo_id"] for c in res["triggered_combos"]])))
 
+        # Determine custom audit note and operator
+        default_audit_note = f"Simulated transaction for {name} added. Score: {score}%. Status: {status_val.upper()}."
+        if status_val == "approved":
+            if score < 40:
+                default_audit_note = "Low risk transaction approved and saved."
+            else:
+                default_audit_note = "Medium risk manually approved."
+        elif status_val == "blocked":
+            if score >= 55 or ip_outside == 1:
+                default_audit_note = "Transaction blocked due to high/critical fraud risk."
+            else:
+                default_audit_note = "Medium risk manually blocked."
+
+        audit_note = data.get("audit_note", default_audit_note)
+        operator = data.get("operator", "System")
+
         # Log Audit Entry
         cursor.execute("""
             INSERT INTO audit_logs (target_type, target_id, action, note, operator, timestamp)
-            VALUES ('transaction', ?, ?, ?, 'System', ?)
-        """, (tx_id, status_val, f"Simulated transaction for {name} added. Score: {score}%. Status: {status_val.upper()}.", timestamp))
+            VALUES ('transaction', ?, ?, ?, ?, ?)
+        """, (tx_id, status_val, audit_note, operator, timestamp))
 
         alert_id = None
         # Generate Alert if Score >= 40 (MEDIUM, HIGH, CRITICAL)
